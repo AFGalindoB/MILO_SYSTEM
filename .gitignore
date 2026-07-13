@@ -1,0 +1,9 @@
+*.o
+*.out
+*_exec
+
+build/
+
+compile_commands.json
+
+/compilaciones
