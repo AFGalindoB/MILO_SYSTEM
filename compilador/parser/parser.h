@@ -12,6 +12,8 @@ typedef enum {
     INSTR_STORE,
     INSTR_ADD,
     INSTR_SUB,
+    INSTR_ADC,
+    INSTR_SBC,
     INSTR_AND,
     INSTR_OR,
     INSTR_XOR,
@@ -26,8 +28,8 @@ typedef struct {
     uint32_t linea;
     
     union {
-        struct { uint8_t rd; uint8_t ra; uint8_t rb; } alu;
-        struct { uint8_t rd; uint8_t ra; } alu_unaria;
+        struct { uint8_t rd; uint8_t ra; uint8_t rb; uint8_t update_flags; } alu;
+        struct { uint8_t rd; uint8_t ra; uint8_t update_flags; } alu_unaria;
         struct { uint8_t rd; uint8_t rs; } mov;
         struct { uint8_t rd; uint32_t valor; } movi;
         struct { uint8_t rd; uint8_t mar; } load;

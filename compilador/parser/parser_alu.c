@@ -1,7 +1,20 @@
 #include "parser.h"
+#include <string.h>
 
 void parsear_alu(InstruccionParseada* instr) {
     
+    uint8_t update_flags = 0;
+
+    if (match(TOKEN_MODIFICADOR)) {
+        if (strcmp(token_actual.lexema, ".F") == 0) {
+            update_flags = 1;
+            avanzar_token(); // Consumir el modificador ".F"
+        } else {
+            // Error sintáctico controlado si viene un modificador inesperado en la ALU
+            consumir(TOKEN_MODIFICADOR, "El único modificador permitido para operaciones de la ALU es '.F'");
+        }
+    }
+
     int es_unaria = (instr->tipo == INSTR_NOT);
 
     if (es_unaria) {
@@ -9,6 +22,8 @@ void parsear_alu(InstruccionParseada* instr) {
         // FLUJO UNARIO (Ej: NOT Rd, Ra)
         // ==========================================
         
+        instr->operandos.alu_unaria.update_flags = update_flags;
+
         // 1. Registro Destino (Rd)
         if (match(TOKEN_REGISTRO)) {
             instr->operandos.alu_unaria.rd = token_actual.valor;
@@ -33,6 +48,8 @@ void parsear_alu(InstruccionParseada* instr) {
         // FLUJO BINARIO (Ej: ADD Rd, Ra Rb)
         // ==========================================
         
+        instr->operandos.alu.update_flags = update_flags;
+
         // 1. Registro Destino (Rd)
         if (match(TOKEN_REGISTRO)) {
             instr->operandos.alu.rd = token_actual.valor;

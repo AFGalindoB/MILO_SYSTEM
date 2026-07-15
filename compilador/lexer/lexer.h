@@ -14,6 +14,7 @@ typedef enum {
     TOKEN_CORCHETE_D,
     TOKEN_DOSPUNTOS,
     TOKEN_SALTO_LINEA,
+    TOKEN_MODIFICADOR,
     TOKEN_EOF,
     TOKEN_ERROR
 } TipoToken;

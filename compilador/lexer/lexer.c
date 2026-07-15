@@ -52,7 +52,7 @@ Token obtener_siguiente_token(void) {
             continue;
         }
 
-        // 2. Control estricto del salto de línea para actualizar la matriz de coordenadas
+        // 2. Control del salto de línea para actualizar la matriz de coordenadas
         if (c == '\n') {
             uint32_t l = linea_actual;
             uint32_t col = columna_actual;
@@ -80,7 +80,28 @@ Token obtener_siguiente_token(void) {
         if (c == ']') { avanzar_cursor_codigo(); return crear_token(TOKEN_CORCHETE_D, "]", 0, l_start, c_start); }
         if (c == ':') { avanzar_cursor_codigo(); return crear_token(TOKEN_DOSPUNTOS, ":", 0, l_start, c_start); }
 
-        // 5. Procesamiento de palabras (Registros o Identificadores generales)
+        // 5. Gestion de modificadores de los identificadores
+        if (c == '.') {
+            avanzar_cursor_codigo();
+            char buffer[32] = {0};
+            int i = 0;
+            buffer[0] = '.';
+            i++;
+
+            // Leer caracteres alfabéticos después del punto (ej: "F")
+            while (isalpha((unsigned char)peek()) && i < 31) {
+                buffer[i++] = toupper((unsigned char)avanzar_cursor_codigo());
+            }
+
+            if (i == 1) { // Error: Escribieron el punto '.' solo sin letras
+                return crear_token(TOKEN_ERROR, ".", 0, l_start, c_start);
+            }
+
+            // Devolver el token completo con lexema ".F", ".W", etc.
+            return crear_token(TOKEN_MODIFICADOR, buffer, 0, l_start, c_start);
+        }
+
+        // 6. Procesamiento de palabras (Registros o Identificadores generales)
         if (isalpha((unsigned char)c)) {
             char buffer[32] = {0};
             int i = 0;
@@ -102,7 +123,7 @@ Token obtener_siguiente_token(void) {
             return crear_token(TOKEN_IDENTIFICADOR, buffer, 0, l_start, c_start);
         }
 
-        // 6. Procesamiento de Inmediatos (Ej: #10)
+        // 7. Procesamiento de Inmediatos (Ej: #10)
         if (c == '#') {
             avanzar_cursor_codigo(); // Consumimos el carácter '#' en memoria
             char buffer[32] = {0};
@@ -122,7 +143,7 @@ Token obtener_siguiente_token(void) {
             return crear_token(TOKEN_INMEDIATO, buffer, val, l_start, c_start);
         }
 
-        // 7. Números puros (Direcciones de memoria directas o literales)
+        // 8. Números puros (Direcciones de memoria directas o literales)
         if (isdigit((unsigned char)c)) {
             char buffer[32] = {0};
             int i = 0;
@@ -135,7 +156,7 @@ Token obtener_siguiente_token(void) {
             return crear_token(TOKEN_NUMERO, buffer, val, l_start, c_start);
         }
 
-        // 8. Error Léxico: El carácter actual no encaja en ningún autómata
+        // 9. Error Léxico: El carácter actual no encaja en ningún autómata
         char err_lex[2] = { avanzar_cursor_codigo(), '\0' };
         return crear_token(TOKEN_ERROR, err_lex, 0, l_start, c_start);
     }
@@ -156,6 +177,7 @@ const char* tipo_token_a_string(TipoToken tipo) {
         case TOKEN_DOSPUNTOS:     return "DOSPUNTOS";
         case TOKEN_SALTO_LINEA:   return "SALTO_LINEA";
         case TOKEN_EOF:           return "EOF";
+        case TOKEN_MODIFICADOR:   return "MODIFICADOR";
         default:                  return "ERROR_LEXICO";
     }
 }

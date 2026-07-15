@@ -14,7 +14,6 @@ static void error_sintactico(const char* formato, ...) {
     printf("====================================================================\n");
     printf(" Detalle: ");
     
-    // Procesar los argumentos variables (como printf) para mensajes personalizados
     va_list args;
     va_start(args, formato);
     vprintf(formato, args);
@@ -24,7 +23,7 @@ static void error_sintactico(const char* formato, ...) {
     printf("====================================================================\n");
     printf(" Compilación finalizada debido a errores sintácticos.\n");
     
-    exit(EXIT_FAILURE); // Termina el proceso inmediatamente de forma nativa
+    exit(EXIT_FAILURE);
 }
 
 void avanzar_token(void) {
@@ -58,7 +57,6 @@ InstruccionParseada parsear_linea(void) {
     
     instr.linea = token_actual.linea;
     
-    // Identificar la instrucción base y reenviar al script correspondiente
     if (match(TOKEN_IDENTIFICADOR)) {
         const char* mnemonico = token_actual.lexema;
         
@@ -74,7 +72,9 @@ InstruccionParseada parsear_linea(void) {
         
         // --- Bloque de Reenvío a ALU ---
         else if (strcmp(mnemonico, "ADD") == 0) { instr.tipo = INSTR_ADD; avanzar_token(); parsear_alu(&instr); }
+        else if (strcmp(mnemonico, "ADC") == 0) { instr.tipo = INSTR_ADC; avanzar_token(); parsear_alu(&instr); }
         else if (strcmp(mnemonico, "SUB") == 0) { instr.tipo = INSTR_SUB; avanzar_token(); parsear_alu(&instr); }
+        else if (strcmp(mnemonico, "SBC") == 0) { instr.tipo = INSTR_SBC; avanzar_token(); parsear_alu(&instr); }
         else if (strcmp(mnemonico, "AND") == 0) { instr.tipo = INSTR_AND; avanzar_token(); parsear_alu(&instr); }
         else if (strcmp(mnemonico, "OR") == 0)  { instr.tipo = INSTR_OR;  avanzar_token(); parsear_alu(&instr); }
         else if (strcmp(mnemonico, "XOR") == 0) { instr.tipo = INSTR_XOR; avanzar_token(); parsear_alu(&instr); }

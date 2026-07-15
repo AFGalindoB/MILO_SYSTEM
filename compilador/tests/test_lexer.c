@@ -13,7 +13,11 @@ int main() {
         "STORE R4, [R16]     ; Linea 7: ERROR ADREDE (R16 no existe, debe ser IDENTIFICADOR)\n"
         "DATA: 255           ; Linea 8: Numero puro (Direccion o constante)\n"
         "MOV R5, #           ; Linea 9: ERROR ADREDE (Simbolo '#' huerfano)\n"
-        "@                   ; Linea 10: ERROR ADREDE (Caracter invalido)";
+        "@                   ; Linea 10: ERROR ADREDE (Caracter invalido)\n"
+        "ADD.F R2, R0 R1     ; Linea 11: Modificador valido adjunto (.F)\n"
+        "SUB .F R3, R1 R2    ; Linea 12: Modificador separado por espacio (.F)\n"
+        ".                   ; Linea 13: ERROR ADREDE (Punto huerfano sin letras)\n"
+        ".123                ; Linea 14: ERROR ADREDE (Punto seguido de numeros)";
 
     printf("====================================================================\n");
     printf("   🔥 EJECUTANDO TESTBENCH DE ANÁLISIS LÉXICO - CPU ALPHA 🔥        \n");

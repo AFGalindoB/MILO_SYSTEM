@@ -1,0 +1,25 @@
+# Makefile especializado para las pruebas del generador de código de máquina (ROM)
+CC = gcc
+CFLAGS = -Wall -Wextra -g
+
+SRC_DIR = .
+SRC_CORE = $(SRC_DIR)/lexer/lexer.c \
+           $(SRC_DIR)/parser/parser.c \
+           $(SRC_DIR)/parser/parser_alu.c \
+           $(SRC_DIR)/parser/parser_transferencia.c \
+           $(SRC_DIR)/codificador/codificador.c \
+           $(SRC_DIR)/helpers/escritor_rom.c
+
+all: test_movi test_movimiento_general test_alu
+
+test_movi: $(SRC_DIR)/tests/tests_compilacion/test_movi.c $(SRC_CORE)
+	$(CC) $(CFLAGS) $^ -o $(SRC_DIR)/test_movi_exec
+
+test_movimiento_general: $(SRC_DIR)/tests/tests_compilacion/test_movimiento_general.c $(SRC_CORE)
+	$(CC) $(CFLAGS) $^ -o $(SRC_DIR)/test_movimiento_general_exec
+
+test_alu: $(SRC_DIR)/tests/tests_compilacion/test_alu.c $(SRC_CORE)
+	$(CC) $(CFLAGS) $^ -o $(SRC_DIR)/test_alu_exec
+
+clean:
+	rm -f $(SRC_DIR)/test_movi_exec $(SRC_DIR)/test_movimiento_general_exec $(SRC_DIR)/test_alu_exec
