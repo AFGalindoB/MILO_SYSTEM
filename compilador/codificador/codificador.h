@@ -10,6 +10,9 @@
 #define ALU_OP_AND 2
 #define ALU_OP_OR  3
 #define ALU_OP_XOR 4
+#define ALU_OP_NOT 5
+#define ALU_OP_SHL 6
+#define ALU_OP_SHR 7
 
 // Estructura que representa la palabra final de 64 bits de la ROM
 typedef struct {

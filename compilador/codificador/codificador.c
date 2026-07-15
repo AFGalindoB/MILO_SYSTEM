@@ -20,11 +20,16 @@ PalabraROM codificar_instruccion(InstruccionParseada* instr) {
             // Todos los demás campos se quedan en 0 (Fine Control ignorado)
             break;
 
+        // =================================================================
+        // OPERACIONES ALU BINARIAS (3 Registros: Rd, Ra, Rb)
+        // =================================================================
         case INSTR_ADD:
         case INSTR_SUB:
         case INSTR_AND:
         case INSTR_OR:
         case INSTR_XOR:
+        case INSTR_SHL:
+        case INSTR_SHR:
             opcode = 0x01;         // 000001 (ALU)
             bus_c_selector = 0x00; // 00000 (Origen: ALU)
             
@@ -32,21 +37,41 @@ PalabraROM codificar_instruccion(InstruccionParseada* instr) {
             reg_src1 = instr->operandos.alu.ra;
             reg_src2 = instr->operandos.alu.rb;
 
-            // Configuración de Fine Control de la ALU:
-            // Bit 3: ALU_&_REGS_ENABLE = 1
-            // Bits 2-0: ALU_OP
+            // Seleccion de operacion aritmetico logica Bits 6-4
             uint32_t alu_op = 0;
             if (instr->tipo == INSTR_ADD) alu_op = ALU_OP_ADD;
             else if (instr->tipo == INSTR_SUB) alu_op = ALU_OP_SUB;
             else if (instr->tipo == INSTR_AND) alu_op = ALU_OP_AND;
             else if (instr->tipo == INSTR_OR)  alu_op = ALU_OP_OR;
             else if (instr->tipo == INSTR_XOR) alu_op = ALU_OP_XOR;
+            else if (instr->tipo == INSTR_SHL) alu_op = ALU_OP_SHL;
+            else if (instr->tipo == INSTR_SHR) alu_op = ALU_OP_SHR;
 
-            // Construcción del nuevo Fine Control según la especificación:
-            // Bit 0: ALU_&_REGS_ENABLE = 1
-            // UPDATE_FLAGS (Bit 1) y CARRY_IN (Bit 2) se quedan en 0
-            // Bits 5-3: alu_op desplazado 3 posiciones hacia la izquierda
-            fine_control = (1 << 0) | ((alu_op & 0x07) << 3);
+            // 🛠️ Nuevo mapa de bits con bits de habilitación separados:
+            // Bit 0: REGS_ENABLE = 1 (Queremos guardar el resultado)
+            // Bit 1: ENABLE_ALU = 1 (Habilita entrada de datos a la ALU)
+            // Bit 2: UPDATE_FLAGS = 0 (Filosofía ARM por defecto)
+            // Bit 3: CARRY_IN = 0
+            // Bits 6-4: alu_op desplazado 4 posiciones (<< 4)
+            fine_control = (1 << 0) | (1 << 1) | ((alu_op & 0x07) << 4); 
+            break;
+
+        // =================================================================
+        // OPERACIONES ALU UNARIAS (2 Registros: Rd, Ra)
+        // =================================================================
+        case INSTR_NOT:
+            opcode = 0x01;         // 000001 (Mismo bloque funcional ALU)
+            bus_c_selector = 0x00; // 00000 (Origen: ALU)
+            
+            // Extrae del nuevo struct alu_unaria para evitar colisiones de memoria
+            reg_dest = instr->operandos.alu_unaria.rd;
+            reg_src1 = instr->operandos.alu_unaria.ra; // Pasa por el Bus A
+            reg_src2 = 0;                              // No se usa un segundo operando
+
+            uint32_t alu_op_unaria = ALU_OP_NOT;
+
+            // Mismo mapeo de Fine Control (REGS_ENABLE y ENABLE_ALU activos, UPDATE_FLAGS en 0)
+            fine_control = (1 << 0) | (1 << 1) | ((alu_op_unaria & 0x07) << 4);
             break;
 
         case INSTR_MOV:

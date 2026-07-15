@@ -15,6 +15,9 @@ typedef enum {
     INSTR_AND,
     INSTR_OR,
     INSTR_XOR,
+    INSTR_NOT,
+    INSTR_SHL,
+    INSTR_SHR,
     INSTR_DESCONOCIDA
 } TipoInstruccion;
 
@@ -24,6 +27,7 @@ typedef struct {
     
     union {
         struct { uint8_t rd; uint8_t ra; uint8_t rb; } alu;
+        struct { uint8_t rd; uint8_t ra; } alu_unaria;
         struct { uint8_t rd; uint8_t rs; } mov;
         struct { uint8_t rd; uint32_t valor; } movi;
         struct { uint8_t rd; uint8_t mar; } load;

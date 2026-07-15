@@ -87,13 +87,14 @@ Fine Control ignorado.
 
 ### ALU
 
-| Bits  | Nombre de la Señal  | Tipo      | Descripción Física                                                       |
-| ----- | ------------------- | --------- | ------------------------------------------------------------------------ |
-| `8-6` | `RESERVED`          |           | Bits libres para futuras ampliaciones.                                   |
-| `5-3` | `ALU_OP`            | Seleccion | Selecciona la operación ejecutada por la Unidad Aritmético Lógica.       |
-| `2`   | `CARRY_IN`          | Control   | Permite tomar el acarreo guardado a las operaciones de suma y resta.     |
-| `1`   | `UPDATE_FLAGS`      | Control   | Permite actualizar todas las FLAGS.                                      |
-| `0`   | `ALU_&_REGS_ENABLE` | Control   | Habilita las entradas de datos a la ALU y la carga del registro destino. |
+| Bits  | Nombre de la Señal | Tipo      | Descripción Física                                                   |
+| ----- | ------------------ | --------- | -------------------------------------------------------------------- |
+| `8-7` | `RESERVED`         |           | Bits libres para futuras ampliaciones.                               |
+| `6-4` | `ALU_OP`           | Seleccion | Selecciona la operación ejecutada por la Unidad Aritmético Lógica.   |
+| `3`   | `CARRY_IN`         | Control   | Permite tomar el acarreo guardado a las operaciones de suma y resta. |
+| `2`   | `UPDATE_FLAGS`     | Control   | Permite actualizar todas las FLAGS.                                  |
+| `1`   | `ENABLE_ALU`       | Control   | Permite la entradade datos a la ALU                                  |
+| `0`   | `REGS_ENABLE`      | Control   | Habilita la carga del registro destino.                              |
 
 ---
 
