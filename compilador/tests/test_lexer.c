@@ -20,7 +20,7 @@ int main() {
         ".123                ; Linea 14: ERROR ADREDE (Punto seguido de numeros)";
 
     printf("====================================================================\n");
-    printf("   🔥 EJECUTANDO TESTBENCH DE ANÁLISIS LÉXICO - CPU ALPHA 🔥        \n");
+    printf("   🔥 EJECUTANDO TESTBENCH DE ANÁLISIS LÉXICO - MILO ASM 🔥        \n");
     printf("====================================================================\n\n");
 
     // Inicializamos el puntero en la memoria de la cadena de texto

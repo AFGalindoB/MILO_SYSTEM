@@ -4,6 +4,8 @@
 #include "../lexer/lexer.h"
 #include "../parser/parser.h"
 
+#define PROBAR_ERROR_SINTACTICO true
+
 // Helper estático para obtener el nombre legible del tipo de instrucción
 static const char* obtener_nombre_instruccion(TipoInstruccion tipo) {
     switch (tipo) {
@@ -98,6 +100,8 @@ static void desempaquetar_e_imprimir(InstruccionParseada* instr) {
 int main() {
     // 1. Único código de prueba que contiene las nuevas incorporaciones (ADC, SBC, modificadores .F)
     const char* codigo_prueba = 
+    #if !PROBAR_ERROR_SINTACTICO
+        "; ---- Bloque de Pruebas Exitosas ----\n"
         "NOP\n"
         "MOVI R1, #25\n"
         "MOV R2, R1\n"
@@ -109,15 +113,29 @@ int main() {
         "NOT R7, R3          ; ALU Unaria estándar sin .F\n"
         "LOAD R8, [R1]\n"
         "STORE R8, [R5]\n";
+    #else
+        "; ---- Bloque de Pruebas con Errores Sintácticos ----\n"
+        "ADD R1 R2 R3        ; Error 1: Falta coma obligatoria\n"
+        "MOVI R2,             ; Error 2: Inmediato vacío\n"
+        "STORE R3, R4         ; Error 3: Store sin corchetes\n"
+        "NOP                  ; ¡Línea correcta que se sincronizará tras el error anterior!\n"
+        "INVENTADO R1, R2     ; Error 4: Mnemónico ilegal\n"
+        "NOT R5, R6 R7        ; Error 5: NOT no acepta segundo operando fuente\n"
+        "ADD.F.G R8, R1 R2    ; Error 6: Doble modificador inválido\n"
+        "LOAD R1, R2          ; Error 7: LOAD sin corchetes\n"
+        "ADD.G R1, R2 R3      ; Error 8: Modificador inexistente\n"
+        ".                    ; Error 9: Modificador invalido\n";
+    #endif
 
     printf("====================================================================\n");
-    printf("   🔥 EJECUTANDO TESTBENCH DEL PARSER - CPU ALPHA 🔥        \n");
+    printf("   🔥 EJECUTANDO TESTBENCH DEL PARSER - MILO ASM 🔥        \n");
     printf("====================================================================\n\n");
 
     // Inicializar el lexer y arrancar el pipeline de tokens
     inicializar_lexer(codigo_prueba);
     avanzar_token();
 
+    contador_errores = 0;
     int lineas_procesadas = 0;
 
     // Ciclo principal de parsing estructurado
@@ -128,16 +146,25 @@ int main() {
 
         // Evitar procesar líneas sin instrucciones (comentarios o líneas vacías)
         if (instr.tipo == INSTR_DESCONOCIDA) {
+            if (match(TOKEN_SALTO_LINEA)) {
+                avanzar_token();
+            }
             continue; 
         }
 
         // Desempaquetado genérico del AST sin requerir switches gigantes en la rutina de test
         desempaquetar_e_imprimir(&instr);
+
+        if (match(TOKEN_SALTO_LINEA)) {
+            avanzar_token();
+        }
     }
 
+    emitir_informe_compilacion();
+
     printf("\n====================================================================\n");
-    printf(" Análisis sintáctico completado. %d instrucciones validadas.\n", lineas_procesadas);
+    printf(" Análisis sintáctico completado. %d instrucciones revisadas.\n", lineas_procesadas);
     printf("====================================================================\n");
 
-    return 0;
+    return (contador_errores > 0) ? 1 : 0;
 }

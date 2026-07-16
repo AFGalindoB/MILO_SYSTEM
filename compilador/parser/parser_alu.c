@@ -10,8 +10,7 @@ void parsear_alu(InstruccionParseada* instr) {
             update_flags = 1;
             avanzar_token(); // Consumir el modificador ".F"
         } else {
-            // Error sintáctico controlado si viene un modificador inesperado en la ALU
-            consumir(TOKEN_MODIFICADOR, "El único modificador permitido para operaciones de la ALU es '.F'");
+            consumir_lexema(TOKEN_MODIFICADOR, ".F", "El único modificador permitido para operaciones de la ALU es '.F'");
         }
     }
 

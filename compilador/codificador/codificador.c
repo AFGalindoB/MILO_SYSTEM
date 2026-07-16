@@ -24,7 +24,9 @@ PalabraROM codificar_instruccion(InstruccionParseada* instr) {
         // OPERACIONES ALU BINARIAS (3 Registros: Rd, Ra, Rb)
         // =================================================================
         case INSTR_ADD:
+        case INSTR_ADC:
         case INSTR_SUB:
+        case INSTR_SBC:
         case INSTR_AND:
         case INSTR_OR:
         case INSTR_XOR:
@@ -39,21 +41,31 @@ PalabraROM codificar_instruccion(InstruccionParseada* instr) {
 
             // Seleccion de operacion aritmetico logica Bits 6-4
             uint32_t alu_op = 0;
-            if (instr->tipo == INSTR_ADD) alu_op = ALU_OP_ADD;
-            else if (instr->tipo == INSTR_SUB) alu_op = ALU_OP_SUB;
-            else if (instr->tipo == INSTR_AND) alu_op = ALU_OP_AND;
-            else if (instr->tipo == INSTR_OR)  alu_op = ALU_OP_OR;
-            else if (instr->tipo == INSTR_XOR) alu_op = ALU_OP_XOR;
-            else if (instr->tipo == INSTR_SHL) alu_op = ALU_OP_SHL;
-            else if (instr->tipo == INSTR_SHR) alu_op = ALU_OP_SHR;
+            uint32_t carry_in = 0;
 
-            // 🛠️ Nuevo mapa de bits con bits de habilitación separados:
+            if      (instr->tipo == INSTR_ADD) { alu_op = ALU_OP_ADD; }
+            else if (instr->tipo == INSTR_ADC) { alu_op = ALU_OP_ADD; carry_in = 1; }
+            else if (instr->tipo == INSTR_SUB) { alu_op = ALU_OP_SUB; }
+            else if (instr->tipo == INSTR_SBC) { alu_op = ALU_OP_SUB; carry_in = 1; }
+            else if (instr->tipo == INSTR_AND) { alu_op = ALU_OP_AND; }
+            else if (instr->tipo == INSTR_OR)  { alu_op = ALU_OP_OR;  }
+            else if (instr->tipo == INSTR_XOR) { alu_op = ALU_OP_XOR; }
+            else if (instr->tipo == INSTR_SHL) { alu_op = ALU_OP_SHL; }
+            else if (instr->tipo == INSTR_SHR) { alu_op = ALU_OP_SHR; }
+
+            uint32_t update_flags = instr->operandos.alu.update_flags & 0x01;
+
+            // 🛠️ Nuevo mapa de bits de Fine Control:
             // Bit 0: REGS_ENABLE = 1 (Queremos guardar el resultado)
             // Bit 1: ENABLE_ALU = 1 (Habilita entrada de datos a la ALU)
-            // Bit 2: UPDATE_FLAGS = 0 (Filosofía ARM por defecto)
-            // Bit 3: CARRY_IN = 0
+            // Bit 2: UPDATE_FLAGS (Dinámico según venga con .F o no)
+            // Bit 3: CARRY_IN (1 para ADC/SBC, 0 para los demás)
             // Bits 6-4: alu_op desplazado 4 posiciones (<< 4)
-            fine_control = (1 << 0) | (1 << 1) | ((alu_op & 0x07) << 4); 
+            fine_control = (1 << 0) | 
+                           (1 << 1) | 
+                           (update_flags << 2) | 
+                           (carry_in << 3) | 
+                           ((alu_op & 0x07) << 4);
             break;
 
         // =================================================================
@@ -69,9 +81,14 @@ PalabraROM codificar_instruccion(InstruccionParseada* instr) {
             reg_src2 = 0;                              // No se usa un segundo operando
 
             uint32_t alu_op_unaria = ALU_OP_NOT;
+            uint32_t update_flags_unaria = instr->operandos.alu_unaria.update_flags & 0x01;
 
-            // Mismo mapeo de Fine Control (REGS_ENABLE y ENABLE_ALU activos, UPDATE_FLAGS en 0)
-            fine_control = (1 << 0) | (1 << 1) | ((alu_op_unaria & 0x07) << 4);
+            // Mapeo de Fine Control (UPDATE_FLAGS dinámico según modificador unario .F)
+            fine_control = (1 << 0) | 
+                           (1 << 1) | 
+                           (update_flags_unaria << 2) | 
+                           (0 << 3) | // NOT no usa Carry In
+                           ((alu_op_unaria & 0x07) << 4);
             break;
 
         case INSTR_MOV:

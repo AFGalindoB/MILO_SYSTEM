@@ -8,9 +8,10 @@ SRC_CORE = $(SRC_DIR)/lexer/lexer.c \
            $(SRC_DIR)/parser/parser_alu.c \
            $(SRC_DIR)/parser/parser_transferencia.c \
            $(SRC_DIR)/codificador/codificador.c \
-           $(SRC_DIR)/helpers/escritor_rom.c
+           $(SRC_DIR)/helpers/escritor_rom.c \
+           $(SRC_DIR)/helpers/compilador_helper.c
 
-all: test_movi test_movimiento_general test_alu
+all: test_movi test_movimiento_general test_alu test_flags
 
 test_movi: $(SRC_DIR)/tests/tests_compilacion/test_movi.c $(SRC_CORE)
 	$(CC) $(CFLAGS) $^ -o $(SRC_DIR)/test_movi_exec
@@ -21,5 +22,8 @@ test_movimiento_general: $(SRC_DIR)/tests/tests_compilacion/test_movimiento_gene
 test_alu: $(SRC_DIR)/tests/tests_compilacion/test_alu.c $(SRC_CORE)
 	$(CC) $(CFLAGS) $^ -o $(SRC_DIR)/test_alu_exec
 
+test_flags: $(SRC_DIR)/tests/tests_compilacion/test_flags.c $(SRC_CORE)
+	$(CC) $(CFLAGS) $^ -o $(SRC_DIR)/test_flags_exec
+
 clean:
-	rm -f $(SRC_DIR)/test_movi_exec $(SRC_DIR)/test_movimiento_general_exec $(SRC_DIR)/test_alu_exec
+	rm -f $(SRC_DIR)/test_movi_exec $(SRC_DIR)/test_movimiento_general_exec $(SRC_DIR)/test_alu_exec $(SRC_DIR)/test_flags_exec

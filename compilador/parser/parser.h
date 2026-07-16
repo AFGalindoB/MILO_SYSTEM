@@ -37,16 +37,31 @@ typedef struct {
     } operandos;
 } InstruccionParseada;
 
-// Compartidos para los submódulos (Definidos en el main del parser)
+#define MAX_ERRORES 10
+
+typedef struct {
+    int linea;
+    int columna;
+    char lexema[64];
+    char tipo_token_str[32];
+    char mensaje[256];
+} RegistroError;
+
 extern Token token_actual;
-extern int hubo_error;
+extern uint32_t contador_errores;
+
 void avanzar_token(void);
 int match(TipoToken tipo);
-void consumir(TipoToken tipo_esperado, const char* mensaje_error);
+int match_lexema(TipoToken tipo, const char* lexema);
 
-// Interfaces de los scripts individuales
+void consumir(TipoToken tipo_esperado, const char* mensaje_error);
+void consumir_lexema(TipoToken tipo_esperado, const char* lexema_esperado, const char* mensaje_error);
+
+// Interfaces de parsing
 InstruccionParseada parsear_linea(void);
 void parsear_movimiento(InstruccionParseada* instr);
 void parsear_alu(InstruccionParseada* instr);
+
+void emitir_informe_compilacion(void);
 
 #endif // PARSER_H

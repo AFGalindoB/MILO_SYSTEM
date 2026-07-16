@@ -1,5 +1,5 @@
 # ====================================================================
-#              Makefile Puente Principal - CPU ALPHA
+#              Makefile Puente Principal - CPU MILO
 # ====================================================================
 
 # Ejecución por defecto: compila absolutamente todos los tests del proyecto
@@ -32,6 +32,9 @@ test_movimiento_general:
 
 test_alu:
 	make -f makefiles/Makefile.compilacion test_alu
+
+test_flags:
+	make -f makefiles/Makefile.compilacion test_flags
 
 
 # --------------------------------------------------------------------
