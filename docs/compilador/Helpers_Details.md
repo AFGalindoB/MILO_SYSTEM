@@ -14,7 +14,7 @@ Compilador     Escritor ROM
 
 La función `compilar_y_exportar()` constituye el punto de entrada del proceso completo de compilación.
 
-Su responsabilidad consiste en coordinar todas las etapas del compilador, desde la inicialización del análisis léxico hasta la generación del archivo de salida.
+Su responsabilidad consiste en coordinar todas las etapas del compilador, desde la inicialización del análisis léxico hasta la generación del archivo de salida compatible con la memoria ROM del procesador.
 
 El flujo general seguido por esta función es el siguiente.
 
@@ -22,13 +22,17 @@ El flujo general seguido por esta función es el siguiente.
 Inicializar Lexer
         │
         ▼
-Parsear instrucciones
+Parsear instrucción
         │
         ▼
-Codificar instrucciones
+Codificar instrucción
         │
         ▼
-Almacenar PalabraROM
+Generar una o varias
+PalabrasROM
+        │
+        ▼
+Almacenar en la ROM
         │
         ▼
 Emitir informe
@@ -37,13 +41,34 @@ Emitir informe
 Exportar ROM
 ```
 
-Durante este proceso el compilador mantiene un buffer temporal en memoria que representa el contenido completo de la ROM antes de ser exportado al archivo de salida.
+Durante este proceso el compilador mantiene un buffer en memoria que representa el contenido completo de la ROM antes de ser exportado.
 
 ```c
 PalabraROM programa_rom[256];
 ```
 
-Esta estructura permite desacoplar completamente el proceso de compilación de la escritura física del archivo, facilitando futuras extensiones como simuladores, depuradores o formatos alternativos de exportación.
+La generación de código utiliza además un búfer temporal para recibir las palabras de control producidas por el encoder.
+
+```c
+PalabraROM buffer_temporal[4];
+```
+
+Este diseño permite que una única instrucción del ISA pueda expandirse en varias palabras de control sin modificar el resto del pipeline de compilación.
+
+Posteriormente, cada palabra generada es copiada secuencialmente al programa final respetando el orden de ejecución.
+
+### Expansión de instrucciones
+
+Aunque la mayoría de instrucciones del ISA producen una única palabra de control, el compilador admite instrucciones cuya implementación física requiere varias.
+
+Por ejemplo, la instrucción `RET` se traduce internamente en dos palabras de control consecutivas:
+
+1. Decrementar el Stack Pointer.
+2. Cargar el Program Counter desde el Stack.
+
+Desde el punto de vista del programador continúa existiendo una única instrucción `RET`, mientras que el procesador ejecuta la secuencia física necesaria para implementar dicho comportamiento.
+
+Esta estrategia permite que el ISA permanezca independiente de la complejidad de la implementación hardware.
 
 ### Control del proceso de compilación
 
@@ -52,13 +77,38 @@ La función principal también centraliza la gestión del estado global de la co
 Entre sus responsabilidades se encuentran:
 
 - Inicializar el lexer.
-- Reiniciar el contador de errores.
+- Reiniciar el contador global de errores.
 - Ejecutar el ciclo principal de compilación.
-- Controlar el tamaño máximo de la ROM.
-- Emitir el informe final.
-- Decidir si la compilación debe generar un archivo de salida.
+- Invocar al parser para interpretar cada instrucción.
+- Solicitar al encoder la generación de una o varias palabras de control.
+- Gestionar la expansión de instrucciones del ISA.
+- Controlar el tamaño máximo de la ROM física.
+- Construir la imagen final del programa.
+- Emitir el informe de compilación.
+- Decidir si debe exportarse el archivo de salida.
 
 De esta manera, el resto de módulos permanecen completamente enfocados en su responsabilidad específica sin conocer el estado global del proceso.
+
+### Independencia entre ISA y hardware
+
+Una característica importante de esta arquitectura es que el compilador no asume una correspondencia uno a uno entre el ISA y la representación física.
+
+```text
+      ISA
+       │
+       ▼
+   Compilador
+       │
+       ├──────────────┐
+       ▼              ▼
+1 Palabra ROM   Varias Palabras ROM
+       │              │
+       └──────┬───────┘
+              ▼
+          Programa Final
+```
+
+Gracias a esta separación, el ISA puede ofrecer instrucciones de alto nivel cuya implementación física requiera varias palabras de control consecutivas. Esto permite simplificar la programación sin aumentar la complejidad visible para el usuario y facilita futuras optimizaciones o expansiones de la arquitectura sin modificar la sintaxis del lenguaje ensamblador.
 
 ## Escritor ROM
 

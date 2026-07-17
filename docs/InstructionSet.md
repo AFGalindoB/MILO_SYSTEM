@@ -38,6 +38,7 @@ La unidad de control utiliza este campo para habilitar el bloque funcional corre
 | 000000 | NOP |
 | 000001 | ALU |
 | 000010 | MOV |
+| 000011 | PC  |
 
 ## Campo Register Control
 
@@ -106,6 +107,21 @@ Fine Control ignorado.
 | `2`   | `ENABLE_MDR_&_MAR` | Habilitador | Habilita el modo de acceso a memoria.               |
 | `1`   | `RAM_WE`           | Habilitador | Habilita la escritura en la RAM                     |
 | `0`   | `ENABLE_REGS`      | Habilitador | Habilita la escritura en el banco de registros.     |
+
+---
+
+### PC
+
+| Bits  | Nombre de la Señal     | Tipo        | Descripción Física                                                   |
+| ----- | ---------------------- | ----------- | -------------------------------------------------------------------- |
+| `8-7` | `SEL_FLAG`             | Control     | Selecciona una de las flags                                          |
+| `6`   | `NEGATE_FLAG`          | Control     | 0: Flags normales; 1: Flags Negadas                                  |
+| `5`   | `JMP_CONDITIONAL`      | Habilitador | Habilita el salto con flags                                          |
+| `4`   | `ENABLE_SP`            | Habilitador | Cuando esta a 1 permite subir o bajar stack pointer                  |
+| `3`   | `UPDOWN_STACK_POINTER` | Control     | 1: Sube stack pointer, 0: Baja Stack pointer.                        |
+| `2`   | `WE_STACK`             | Habilitador | Permite cargar un valor en el STACK.                                 |
+| `1`   | `SEL_MUX`              | Control     | 0: ROM; 1 STACK                                                      |
+| `0`   | `PC_JUMP`              | Habilitador | Habilita la carga del program counter.                               |
 
 #### Acceso a memoria
 

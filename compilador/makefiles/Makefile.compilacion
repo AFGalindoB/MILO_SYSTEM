@@ -7,7 +7,8 @@ SRC_CORE = $(SRC_DIR)/lexer/lexer.c \
            $(SRC_DIR)/parser/parser.c \
            $(SRC_DIR)/parser/parser_alu.c \
            $(SRC_DIR)/parser/parser_transferencia.c \
-           $(SRC_DIR)/codificador/codificador.c \
+           $(SRC_DIR)/parser/parser_pc.c \
+           $(SRC_DIR)/encoder/encoder.c \
            $(SRC_DIR)/helpers/escritor_rom.c \
            $(SRC_DIR)/helpers/compilador_helper.c
 
@@ -25,5 +26,8 @@ test_alu: $(SRC_DIR)/tests/tests_compilacion/test_alu.c $(SRC_CORE)
 test_flags: $(SRC_DIR)/tests/tests_compilacion/test_flags.c $(SRC_CORE)
 	$(CC) $(CFLAGS) $^ -o $(SRC_DIR)/test_flags_exec
 
+test_pc: $(SRC_DIR)/tests/tests_compilacion/test_pc.c $(SRC_CORE)
+	$(CC) $(CFLAGS) $^ -o $(SRC_DIR)/test_pc_exec
+
 clean:
-	rm -f $(SRC_DIR)/test_movi_exec $(SRC_DIR)/test_movimiento_general_exec $(SRC_DIR)/test_alu_exec $(SRC_DIR)/test_flags_exec
+	rm -f $(SRC_DIR)/test_movi_exec $(SRC_DIR)/test_movimiento_general_exec $(SRC_DIR)/test_alu_exec $(SRC_DIR)/test_flags_exec $(SRC_DIR)/test_pc_exec

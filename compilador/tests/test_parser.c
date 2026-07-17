@@ -4,7 +4,7 @@
 #include "../lexer/lexer.h"
 #include "../parser/parser.h"
 
-#define PROBAR_ERROR_SINTACTICO true
+#define PROBAR_ERROR_SINTACTICO false
 
 // Helper estático para obtener el nombre legible del tipo de instrucción
 static const char* obtener_nombre_instruccion(TipoInstruccion tipo) {
@@ -24,6 +24,21 @@ static const char* obtener_nombre_instruccion(TipoInstruccion tipo) {
         case INSTR_NOT:   return "NOT";
         case INSTR_SHL:   return "SHL";
         case INSTR_SHR:   return "SHR";
+
+        // --- Control de Flujo ---
+        case INSTR_CMP:   return "CMP";
+        case INSTR_JMP:   return "JMP";
+        case INSTR_CALL:  return "CALL";
+        case INSTR_RET:   return "RET";
+        case INSTR_JZ:    return "JZ";
+        case INSTR_JNZ:   return "JNZ";
+        case INSTR_JC:    return "JC";
+        case INSTR_JNC:   return "JNC";
+        case INSTR_JN:    return "JN";
+        case INSTR_JNN:   return "JNN";
+        case INSTR_JV:    return "JV";
+        case INSTR_JNV:   return "JNV";
+
         default:          return "DESCONOCIDA";
     }
 }
@@ -36,6 +51,10 @@ static void desempaquetar_e_imprimir(InstruccionParseada* instr) {
     switch (instr->tipo) {
         case INSTR_NOP:
             printf("Sin operandos\n");
+            break;
+
+        case INSTR_RET:
+            printf("Categoría: SUBRUTINA    | Retorno de función (RET)\n");
             break;
 
         // ALU Binarias (Rd, Ra, Rb) + update_flags
@@ -91,6 +110,26 @@ static void desempaquetar_e_imprimir(InstruccionParseada* instr) {
                    instr->operandos.store.mar);
             break;
 
+        case INSTR_CMP:
+            printf("Categoría: COMPARE     | Ra: R%d, Rb: R%d | (Se evalúa como SUB R0, Ra Rb con UpdateFlags: 1)\n",
+                   instr->operandos.alu.ra,
+                   instr->operandos.alu.rb);
+            break;
+        
+        case INSTR_JMP:
+        case INSTR_CALL:
+        case INSTR_JZ:
+        case INSTR_JNZ:
+        case INSTR_JC:
+        case INSTR_JNC:
+        case INSTR_JN:
+        case INSTR_JNN:
+        case INSTR_JV:
+        case INSTR_JNV:
+            printf("Categoría: CONTROL_FLG | Destino inmediato: #%u\n",
+                   instr->operandos.salto.destino);
+            break;
+
         default:
             printf("Estructura vacía o inválida\n");
             break;
@@ -112,19 +151,28 @@ int main() {
         "NOT.F R6, R2        ; ALU Unaria con actualizador de banderas (.F)\n"
         "NOT R7, R3          ; ALU Unaria estándar sin .F\n"
         "LOAD R8, [R1]\n"
-        "STORE R8, [R5]\n";
+        "STORE R8, [R5]\n"
+        "CMP R1 R2           ; Comparación básica (Debe parsearse sin problemas)\n"
+        "JZ #16              ; Salto si el resultado es cero (Z=1)\n"
+        "CALL #128         ; Llamada a subrutina en la dirección #128\n"
+        "RET                 ; Retorno inmediato de la subrutina\n"
+        "JNZ #8              ; Salto condicional si no es cero (Z=0)\n";
     #else
         "; ---- Bloque de Pruebas con Errores Sintácticos ----\n"
-        "ADD R1 R2 R3        ; Error 1: Falta coma obligatoria\n"
-        "MOVI R2,             ; Error 2: Inmediato vacío\n"
-        "STORE R3, R4         ; Error 3: Store sin corchetes\n"
-        "NOP                  ; ¡Línea correcta que se sincronizará tras el error anterior!\n"
-        "INVENTADO R1, R2     ; Error 4: Mnemónico ilegal\n"
-        "NOT R5, R6 R7        ; Error 5: NOT no acepta segundo operando fuente\n"
-        "ADD.F.G R8, R1 R2    ; Error 6: Doble modificador inválido\n"
-        "LOAD R1, R2          ; Error 7: LOAD sin corchetes\n"
-        "ADD.G R1, R2 R3      ; Error 8: Modificador inexistente\n"
-        ".                    ; Error 9: Modificador invalido\n";
+        "ADD R1 R2 R3         ; Error 1: Falta coma obligatoria\n"
+        "MOV R2, R1 R3        ; Error 2: Solo acepta un registro destino y un registro fuente\n"
+        "MOVI R2,             ; Error 3: Inmediato vacío\n"
+        "STORE R3, R4         ; Error 4: Store sin corchetes\n"
+        "LOAD R1, R2          ; Error 5: LOAD sin corchetes\n"
+        "INVENTADO R1, R2     ; Error 6: Mnemónico ilegal\n"
+        "NOT R5, R6 R7        ; Error 7: NOT no acepta segundo operando fuente\n"
+        "ADD.F.G R8, R1 R2    ; Error 8: Doble modificador inválido\n"
+        "ADD.G R1, R2 R3      ; Error 9: Modificador inexistente\n"
+        ".                    ; Error 10: Modificador invalido\n"
+        "CMP R1               ; Error 11: CMP requiere dos operandos\n"
+        "JMP                  ; Error 12: JMP requiere un valor inmediato\n"
+        "JZ R1                ; Error 13: JZ requiere un inmediato, no un registro\n"
+        "RET R1               ; Error 14: RET no acepta parámetros\n";
     #endif
 
     printf("====================================================================\n");
@@ -160,7 +208,7 @@ int main() {
         }
     }
 
-    emitir_informe_compilacion();
+    emitir_informe_compilacion(codigo_prueba);
 
     printf("\n====================================================================\n");
     printf(" Análisis sintáctico completado. %d instrucciones revisadas.\n", lineas_procesadas);

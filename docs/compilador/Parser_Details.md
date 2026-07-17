@@ -21,21 +21,22 @@ Cada instrucción válida del lenguaje produce exactamente una instancia de esta
 
 El parser fue diseñado siguiendo una arquitectura basada en especialización por familias de instrucciones.
 
-La función principal únicamente identifica el mnemónico correspondiente y delega el análisis sintáctico al módulo especializado encargado de esa categoría de instrucciones.
+La función principal identifica el mnemónico correspondiente y delega el análisis sintáctico al módulo especializado encargado de esa categoría de instrucciones.
 
 ```text
 parsear_linea()
         │
-        ├──────────────┐
-        │              │
-        ▼              ▼
-parsear_movimiento()  parsear_alu()
+        ├──────────────┬───────────────┐
+        │              │               │
+        ▼              ▼               ▼
+parsear_movimiento() parsear_alu() parsear_pc()
 ```
 
-Por ejemplo:
+Actualmente las familias implementadas son:
 
-- MOV, MOVI, LOAD y STORE son procesadas por `parsear_movimiento()`.
-- ADD, SUB, ADC, SBC, AND, OR, XOR, NOT, SHL y SHR son procesadas por `parsear_alu()`.
+- **Movimiento de datos:** `MOV`, `MOVI`, `LOAD`, `STORE`.
+- **Operaciones ALU:** `ADD`, `ADC`, `SUB`, `SBC`, `AND`, `OR`, `XOR`, `NOT`, `SHL`, `SHR`.
+- **Control de flujo:** `CMP`, `JMP`, `CALL`, `RET`, `JZ`, `JNZ`, `JC`, `JNC`, `JN`, `JNN`, `JV` y `JNV`.
 
 Esta organización evita concentrar toda la gramática del lenguaje en una única función de gran tamaño y permite extender el ISA incorporando nuevos módulos especializados sin modificar el resto del compilador.
 
@@ -47,16 +48,19 @@ El proceso de análisis sintáctico de cada línea sigue siempre la misma secuen
 Leer mnemónico
         │
         ▼
-Identificar familia
+Seleccionar familia
         │
         ▼
-Delegar al parser especializado
+Parser especializado
         │
         ▼
-Validar operandos
+Validar sintaxis
         │
         ▼
 Construir InstruccionParseada
+        │
+        ▼
+Registrar errores (si existen)
 ```
 
 Este flujo hace que el parser pueda incorporar nuevas familias de instrucciones con un impacto mínimo sobre el código existente.
@@ -82,24 +86,40 @@ Continuar con la siguiente línea
 
 Este mecanismo evita la propagación de errores en cascada y permite que una única compilación detecte múltiples errores sintácticos antes de finalizar.
 
-El historial de errores conserva información como:
+Además de evitar errores en cascada, el parser conserva información suficiente para generar un diagnóstico detallado al finalizar la compilación.
+
+Cada error registrado almacena:
 
 - Línea.
 - Columna.
 - Lexema encontrado.
-- Tipo de token.
+- Tipo del token.
 - Descripción del error.
 
-Al finalizar el análisis, el parser genera un informe consolidado con todos los errores detectados durante la compilación.
+Utilizando esta información, el informe final reproduce la línea del código fuente donde ocurrió el problema e indica visualmente la posición aproximada mediante un marcador (`^`).
+
+Por ejemplo:
+
+```text
+[1] Error sintáctico en Línea 8, Columna 12
+
+Detalle:
+Se esperaba una coma.
+
+     8 | ADD R1 R2 R3
+                ^
+```
+
+Este formato facilita localizar rápidamente el origen del error sin necesidad de inspeccionar manualmente todo el archivo fuente.
 
 ### Extensibilidad
 
-La arquitectura del parser fue diseñada para facilitar la incorporación de nuevas instrucciones del ISA.
+En la mayoría de los casos, incorporar una nueva familia de instrucciones requiere únicamente:
 
-En la mayoría de los casos, agregar una nueva familia de instrucciones únicamente requiere:
+1. Añadir el nuevo tipo a `TipoInstruccion`.
+2. Incorporar la estructura correspondiente dentro de `InstruccionParseada`, cuando sea necesario.
+3. Implementar un parser especializado para esa familia.
+4. Registrar el nuevo mnemónico en `parsear_linea()`.
+5. Implementar la traducción correspondiente en el encoder.
 
-1. Incorporar el nuevo tipo en TipoInstruccion.
-2. Crear un módulo especializado para dicha familia.
-3. Registrar el nuevo mnemónico dentro de parsear_linea().
-
-De esta forma cada familia permanece aislada del resto del compilador, reduciendo el acoplamiento y simplificando el mantenimiento del proyecto.
+Gracias a esta organización, el parser permanece desacoplado del hardware y únicamente describe la estructura sintáctica del ISA.

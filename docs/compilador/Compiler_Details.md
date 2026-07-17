@@ -19,7 +19,7 @@ compilador/
 │
 ├── lexer/
 ├── parser/
-├── codificador/
+├── encoder/
 ├── helpers/
 ├── tests/
 ├── makefiles/
@@ -53,6 +53,14 @@ Instruction Encoding
 
 Cada etapa consume la representación producida por la etapa anterior y genera una representación de menor nivel hasta obtener la codificación física que será interpretada por el procesador.
 
+Es importante destacar que no existe una correspondencia obligatoria entre una instrucción del ISA y una única palabra de control.
+
+Durante la etapa de codificación, una instrucción del lenguaje ensamblador puede traducirse en una o varias palabras de control físicas dependiendo de la implementación de la arquitectura.
+
+Por ejemplo, una instrucción como `RET` requiere actualmente dos palabras de control consecutivas para restaurar el estado del Stack Pointer y posteriormente cargar el Program Counter desde la pila.
+
+Esta expansión es completamente transparente para el resto del compilador y constituye una responsabilidad exclusiva del encoder.
+
 ## Lexer
 
 El analizador léxico constituye la primera etapa del compilador.
@@ -73,13 +81,15 @@ A diferencia del lexer, que únicamente reconoce elementos individuales del leng
 
 Para mas detalles revisar: [Parser Details](./Parser_Details.md)
 
-## Codificador (Encoder)
+## Encoder
 
 El codificador constituye la última etapa del proceso de compilación.
 
-Su responsabilidad consiste en transformar la representación intermedia producida por el parser en la representación binaria utilizada por el procesador.
+Su responsabilidad consiste en transformar la representación intermedia producida por el parser en la representación física utilizada por el procesador.
 
-A diferencia del parser, el codificador ya no trabaja con el lenguaje ensamblador. En esta etapa todas las instrucciones ya fueron reconocidas y validadas; únicamente resta convertirlas en la palabra de control que será almacenada en la memoria ROM.
+En esta etapa todas las instrucciones del ISA ya fueron reconocidas y validadas. El encoder decide cómo implementar físicamente cada una de ellas mediante una o varias palabras de control compatibles con la CPU.
+
+Como consecuencia, no existe una relación obligatoria de uno a uno entre el ISA y el Instruction Encoding. Algunas instrucciones generan una única palabra de control, mientras que otras pueden expandirse en varias microinstrucciones físicas cuando así lo requiere la arquitectura.
 
 Para mas detalles revisar: [Encoder Details](./Encoder_Details.md)
 
@@ -143,7 +153,7 @@ Parser
       │
       ▼
 Encoder
-(Palabra de Control)
+(Representación física de la instrucción)
       │
       ▼
 ROM

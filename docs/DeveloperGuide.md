@@ -48,7 +48,9 @@ La capa de software proporciona las herramientas necesarias para programar la ar
 
 Actualmente esta capa está compuesta por el compilador MILO ASM, cuya función consiste en traducir programas escritos utilizando el ISA de Milo Alpha hacia la representación binaria que comprende el procesador.
 
-Durante este proceso el compilador interpreta el lenguaje ensamblador, valida su sintaxis y finalmente genera la codificación física de cada instrucción de acuerdo con la especificación del formato de instrucción de la arquitectura.
+Durante este proceso el compilador interpreta el lenguaje ensamblador, valida su sintaxis y finalmente genera la codificación física que será almacenada en la memoria ROM del procesador.
+
+Dependiendo de la instrucción, una operación del ISA puede traducirse en una o varias palabras de control físicas. Esto permite que el compilador implemente abstracciones de mayor nivel utilizando múltiples microinstrucciones sin modificar la interfaz ofrecida al programador.
 
 Internamente el compilador se encuentra dividido en etapas independientes encargadas del análisis léxico, análisis sintáctico y generación de código.
 
@@ -77,6 +79,10 @@ Este documento define cómo se organiza cada palabra de control dentro de la mem
 ## Niveles de abstracción
 
 Uno de los conceptos fundamentales de Milo Alpha consiste en distinguir claramente el ISA de la codificación física de las instrucciones.
+
+Este mecanismo permite introducir instrucciones complejas sin incrementar necesariamente la complejidad del hardware. Cuando resulta conveniente, el encoder puede expandir una instrucción del ISA en una secuencia de microinstrucciones equivalentes.
+
+Por ejemplo, la instrucción RET actualmente se implementa mediante dos palabras de control consecutivas: la primera actualiza el Stack Pointer y la segunda carga el Program Counter desde la pila. Para el programador continúa existiendo una única instrucción RET, mientras que el procesador únicamente ejecuta la secuencia física generada por el compilador.
 
 El ISA constituye una interfaz orientada al programador. Describe las instrucciones disponibles, su sintaxis y su comportamiento lógico.
 
@@ -178,13 +184,13 @@ Una vez definida la nueva instrucción, el compilador decide cómo traducirla ha
 Diseñar o modificar el ISA
           │
           ▼
-Definir su traducción al Instruction Encoding
-          │
-          ▼
 Actualizar Lexer
           │
           ▼
 Actualizar Parser
+          │
+          ▼
+Definir su traducción al Instruction Encoding
           │
           ▼
 Actualizar Encoder
@@ -204,6 +210,8 @@ Toda modificación realizada sobre Milo Alpha debe validarse mediante el sistema
 Actualmente la arquitectura dispone de un conjunto de testbench que permiten verificar tanto las distintas etapas del compilador como la generación de la codificación binaria utilizada por el procesador.
 
 Estas pruebas permiten comprobar que las modificaciones introducidas no alteren el comportamiento esperado del ISA, del compilador ni de la interfaz física utilizada por el hardware.
+
+Algunas instrucciones del ISA pueden expandirse internamente en múltiples palabras de control durante la etapa de generación de código. Por este motivo, las pruebas de compilación verifican la secuencia física completa generada por el encoder y no únicamente una correspondencia uno a uno entre instrucciones del ISA y palabras almacenadas en la ROM.
 
 En función del tipo de cambio realizado, puede ser suficiente ejecutar un subconjunto de las pruebas o resultar conveniente ejecutar la batería completa de testbench del proyecto.
 
@@ -225,3 +233,5 @@ En Milo Alpha el hardware constituye la fuente de verdad (source of truth) de la
 El Instruction Encoding documenta cómo controlar físicamente dicho hardware y el ISA proporciona una interfaz de programación construida sobre esa representación.
 
 En consecuencia, las herramientas de software se adaptan a la arquitectura física del procesador y no al contrario.
+
+El compilador constituye el único componente responsable de cerrar la brecha entre el nivel lógico del ISA y la implementación física del procesador. Esto permite que el hardware permanezca relativamente simple mientras que las abstracciones de programación evolucionan mediante transformaciones realizadas durante la compilación.

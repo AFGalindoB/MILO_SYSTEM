@@ -6,10 +6,12 @@
 
 typedef enum {
     INSTR_NOP,
+
     INSTR_MOV,
     INSTR_MOVI,
     INSTR_LOAD,
     INSTR_STORE,
+    
     INSTR_ADD,
     INSTR_SUB,
     INSTR_ADC,
@@ -20,6 +22,20 @@ typedef enum {
     INSTR_NOT,
     INSTR_SHL,
     INSTR_SHR,
+
+    INSTR_CMP,
+    INSTR_JMP,
+    INSTR_CALL,
+    INSTR_RET,
+    INSTR_JZ,
+    INSTR_JNZ,
+    INSTR_JC,
+    INSTR_JNC,
+    INSTR_JN,
+    INSTR_JNN,
+    INSTR_JV,
+    INSTR_JNV,
+
     INSTR_DESCONOCIDA
 } TipoInstruccion;
 
@@ -34,10 +50,11 @@ typedef struct {
         struct { uint8_t rd; uint32_t valor; } movi;
         struct { uint8_t rd; uint8_t mar; } load;
         struct { uint8_t mdr; uint8_t mar; } store;
+        struct { uint32_t destino; } salto;
     } operandos;
 } InstruccionParseada;
 
-#define MAX_ERRORES 10
+#define MAX_ERRORES 20
 
 typedef struct {
     int linea;
@@ -61,7 +78,8 @@ void consumir_lexema(TipoToken tipo_esperado, const char* lexema_esperado, const
 InstruccionParseada parsear_linea(void);
 void parsear_movimiento(InstruccionParseada* instr);
 void parsear_alu(InstruccionParseada* instr);
+void parsear_pc(InstruccionParseada* instr);
 
-void emitir_informe_compilacion(void);
+void emitir_informe_compilacion(const char* codigo_fuente);
 
 #endif // PARSER_H

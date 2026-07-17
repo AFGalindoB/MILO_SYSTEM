@@ -16,8 +16,17 @@ int main() {
         "@                   ; Linea 10: ERROR ADREDE (Caracter invalido)\n"
         "ADD.F R2, R0 R1     ; Linea 11: Modificador valido adjunto (.F)\n"
         "SUB .F R3, R1 R2    ; Linea 12: Modificador separado por espacio (.F)\n"
-        ".                   ; Linea 13: ERROR ADREDE (Punto huerfano sin letras)\n"
-        ".123                ; Linea 14: ERROR ADREDE (Punto seguido de numeros)";
+        "NOT.F R8, R9        ; Linea 13: Modificador .F en operacion unaria\n"
+        ".                   ; Linea 14: ERROR ADREDE (Punto huerfano sin letras)\n"
+        ".123                ; Linea 15: ERROR ADREDE (Punto seguido de numeros)\n"
+        "CMP R1 R2           ; Linea 16: Nueva instruccion de comparacion (Sintaxis limpia)\n"
+        "jmp #12             ; Linea 17: Salto incondicional (Minusculas)\n"
+        "JZ #10              ; Linea 18: Salto condicional con inmediato\n"
+        "RET                 ; Linea 19: Retorno de subrutina sin argumentos\n"
+        "call #50            ; Linea 20: Llamado a funcion\n"
+        "NOT.F R8, R9        ; Linea 21: Modificador .F en operacion unaria\n"
+        "JNZ.F #5            ; Linea 22: ERROR ADREDE (Modificador .F en un salto condicional)\n"
+        ".F                  ; Linea 23: Modificador .F huerfano al inicio";
 
     printf("====================================================================\n");
     printf("   🔥 EJECUTANDO TESTBENCH DE ANÁLISIS LÉXICO - MILO ASM 🔥        \n");

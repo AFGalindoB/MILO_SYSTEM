@@ -36,6 +36,9 @@ test_alu:
 test_flags:
 	make -f makefiles/Makefile.compilacion test_flags
 
+test_pc:
+	make -f makefiles/Makefile.compilacion test_pc
+
 
 # --------------------------------------------------------------------
 # 🧹 Limpieza General

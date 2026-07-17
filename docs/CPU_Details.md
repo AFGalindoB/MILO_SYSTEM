@@ -15,38 +15,51 @@ Este documento describe exclusivamente la organización interna del procesador y
 
 Arquitectura: 32 bits
 
-Banco de registros: 16 registros
+Banco de registros:
+- 16 registros de propósito general
 
-Ancho de registros: 32 bits
+Program Counter:
+- 24 bits
 
-Unidad de control: Cableada (Hardwired)
+Stack Pointer:
+- 24 bits de datos
+- 8 bits de direcciones
+
+Status Register:
+- Flags N, Z, C y V
+
+Unidad de control:
+- Cableada (Hardwired)
 
 Modelo de memoria:
 - ROM para instrucciones (32 bits) y datos inmediatos (32 bits)
 - RAM para datos (32 bits)
 
 Buses internos: 3
-- 2 de escritura general
-- 1 de escritura hacia banco registros
+- Bus A
+- Bus B
+- Bus C
 
 ALU:
 - ADD
+- ADC
 - SUB
+- SBC
 - AND
 - OR
 - XOR
 - NOT
-- SHIFT
+- SHL
+- SHR
+- CMP
 
-Flags:
-- N
-- Z
-- C
-- O
+Control de flujo:
+- JMP
+- CALL
+- RET
+- Saltos condicionales mediante Flags
 
 ## Organización interna
-
-![CPU Diagram](images/CPU_DIAGRAM.jpg)
 
 ### Banco de registros
 
@@ -68,24 +81,49 @@ Durante las operaciones de acceso a memoria, dos registros pueden asumir tempora
 
 ### ALU
 
-La Unidad Aritmético Lógica (ALU) constituye el bloque encargado de ejecutar las operaciones matemáticas y lógicas del procesador.
+La Unidad Aritmético Lógica (ALU) constituye el bloque encargado de ejecutar las operaciones aritméticas, lógicas y de comparación del procesador.
 
-La ALU recibe simultáneamente dos operandos provenientes de los buses A y B.
+Además de generar el resultado de la operación, la ALU puede actualizar el Status Register cuando la instrucción así lo solicita mediante el modificador `.F`.
 
-Actualmente implementa las siguientes operaciones:
+Actualmente implementa:
 
 - ADD
+- ADC
 - SUB
+- SBC
 - AND
 - OR
 - XOR
 - NOT
-- SHIFT LEFT
-- SHIFT RIGHT
+- SHL
+- SHR
+- CMP
 
-La operación ejecutada y el uso de las banderas N, Z, C y O (actualizacion o uso) es determinado por la unidad de control mediante el campo de control fino de la instrucción
+Las banderas disponibles son:
 
-El resultado generado es colocado sobre el Bus C para su posible escritura en el banco de registros.
+- Negative (N)
+- Zero (Z)
+- Carry (C)
+- Overflow (V)
+
+La actualización de dichas banderas es controlada completamente por la palabra de control generada por el compilador.
+
+---
+
+### Status Register
+
+El procesador incorpora un registro de estado encargado de almacenar el resultado de determinadas operaciones ejecutadas por la ALU.
+
+Actualmente implementa cuatro banderas:
+
+- N (Negative)
+- Z (Zero)
+- C (Carry)
+- V (Overflow)
+
+Estas banderas pueden actualizarse mediante las instrucciones que utilizan el modificador `.F` y posteriormente ser consultadas por las instrucciones de salto condicional.
+
+De esta forma se desacopla el cálculo de una condición de la decisión de modificar el flujo de ejecución.
 
 ---
 
@@ -125,13 +163,16 @@ Cada instrucción contiene un opcode de seis bits que identifica la operación p
 
 El opcode es enviado a un decodificador que habilita el bloque funcional correspondiente. Posteriormente, el campo de control fino de la instrucción es distribuido mediante lógica combinacional hacia el bloque seleccionado.
 
-Este mecanismo permite que una única instrucción genere directamente las señales necesarias para controlar:
+Este mecanismo permite generar directamente las señales necesarias para controlar:
 
-- Banco de registros.
-- ALU.
-- Acceso a memoria.
-- Actualización de banderas.
-- Movimiento de datos.
+- Banco de registros
+- ALU
+- Actualización del Status Register
+- Program Counter
+- Stack Pointer
+- Acceso a RAM
+- Selección de buses
+- Control de flujo
 
 La unidad de control no emplea memoria de microcódigo ni etapas adicionales de ejecución.
 
@@ -184,22 +225,53 @@ La RAM se considera un recurso independiente destinado exclusivamente al almacen
 
 Esta organización simplifica el datapath, reduce la lógica de control necesaria durante la búsqueda de instrucciones y desacopla completamente el flujo de instrucciones del acceso a datos.
 
-## Características Relevantes Actuales
+> El Stack utilizado por CALL y RET forma parte del hardware del procesador y es administrado mediante el Stack Pointer y las señales de control del bloque Program Counter.
 
-Program Counter es lineal.
+---
 
-No existen interrupciones.
+### Program Counter y Stack
 
-No existe caché.
+El Program Counter (PC) almacena la dirección de la siguiente instrucción a ejecutar.
 
-No existe MMU.
+En condiciones normales el PC avanza secuencialmente una posición por ciclo.
 
-No existe pipeline.
+Las instrucciones de control de flujo permiten modificar dicho comportamiento realizando saltos directos o cargando una dirección almacenada en el Stack.
 
-No existe predictor de saltos.
+El procesador incorpora además un Stack Pointer (SP) utilizado para implementar llamadas a subrutinas.
 
-No existe DMA.
+Actualmente se soportan las siguientes operaciones:
 
-No existe GPU.
+- CALL
+- RET
 
-No existe APU.
+CALL almacena automáticamente la dirección de retorno sobre el Stack y actualiza el Stack Pointer.
+
+RET recupera dicha dirección y la carga nuevamente en el Program Counter.
+
+## Características relevantes actuales
+
+Actualmente Milo Alpha implementa:
+
+- Ejecución secuencial mediante Program Counter.
+- Banco de 16 registros de propósito general.
+- Unidad ALU completa.
+- Status Register (N, Z, C y V).
+- Saltos incondicionales.
+- Saltos condicionales.
+- Comparaciones mediante CMP.
+- Llamadas a subrutinas (CALL).
+- Retorno mediante pila (RET).
+- Acceso a memoria mediante LOAD y STORE.
+- Unidad de control cableada.
+
+Actualmente aún no incorpora:
+
+- Interrupciones.
+- Caché.
+- MMU.
+- Pipeline.
+- Predicción de saltos.
+- DMA.
+- GPU.
+- Controlador DDR.
+- APU.
