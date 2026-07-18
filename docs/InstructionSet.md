@@ -39,6 +39,7 @@ La unidad de control utiliza este campo para habilitar el bloque funcional corre
 | 000001 | ALU |
 | 000010 | MOV |
 | 000011 | PC  |
+| 000100 | GPU |
 
 ## Campo Register Control
 
@@ -122,6 +123,17 @@ Fine Control ignorado.
 | `2`   | `WE_STACK`             | Habilitador | Permite cargar un valor en el STACK.                                 |
 | `1`   | `SEL_MUX`              | Control     | 0: ROM; 1 STACK                                                      |
 | `0`   | `PC_JUMP`              | Habilitador | Habilita la carga del program counter.                               |
+
+---
+
+### GPU
+
+| Bits  | Nombre de la Señal     | Tipo        | Descripción Física                                          |
+| ----- | ---------------------- | ----------- | ----------------------------------------------------------- |
+| `8-3` | `RESERVED`             |             | Bits libres para futuras ampliaciones.                      |
+| `2`   | `WE_PIXEL_OFFSET`      | Habilitador | Permite cargar un valor en registro pixel offset de la gpu. |
+| `1`   | `WE_TILE_BUFFER`       | Habilitador | Permite cargar un valor en el buffer de tileset de la gpu.  |
+| `0`   | `WE_TILE_OFFSET`       | Habilitador | Permite cargar un valor en registro tile offset de la gpu.  |
 
 #### Acceso a memoria
 
