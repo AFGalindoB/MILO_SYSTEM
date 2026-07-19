@@ -36,6 +36,11 @@ typedef enum {
     INSTR_JV,
     INSTR_JNV,
 
+    INSTR_GPU_TBUF,
+    INSTR_GPU_PXOFF,
+    INSTR_GPU_TLOFF,
+    INSTR_GPU_SCROLL,
+
     INSTR_DESCONOCIDA
 } TipoInstruccion;
 
@@ -51,6 +56,10 @@ typedef struct {
         struct { uint8_t rd; uint8_t mar; } load;
         struct { uint8_t mdr; uint8_t mar; } store;
         struct { uint32_t destino; } salto;
+
+        struct { uint32_t addr; uint32_t tile;} gpu_tbuf;
+        struct { uint32_t x; uint32_t y; } gpu_off;
+        struct { uint32_t tx; uint32_t ty; uint32_t px; uint32_t py;} gpu_scroll;
     } operandos;
 } InstruccionParseada;
 
@@ -79,6 +88,7 @@ InstruccionParseada parsear_linea(void);
 void parsear_movimiento(InstruccionParseada* instr);
 void parsear_alu(InstruccionParseada* instr);
 void parsear_pc(InstruccionParseada* instr);
+void parsear_gpu(InstruccionParseada* instr);
 
 void emitir_informe_compilacion(const char* codigo_fuente);
 

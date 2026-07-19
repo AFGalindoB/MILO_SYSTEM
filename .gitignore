@@ -7,3 +7,5 @@ build/
 compile_commands.json
 
 /compilaciones
+
+/compilador/sdk/compilaciones

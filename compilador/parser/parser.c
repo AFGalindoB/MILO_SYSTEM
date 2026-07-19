@@ -203,6 +203,13 @@ InstruccionParseada parsear_linea(void) {
         else if (strcmp(mnemonico, "JNN") == 0)  { instr.tipo = INSTR_JNN;  avanzar_token(); parsear_pc(&instr); }
         else if (strcmp(mnemonico, "JV") == 0)   { instr.tipo = INSTR_JV;   avanzar_token(); parsear_pc(&instr); }
         else if (strcmp(mnemonico, "JNV") == 0)  { instr.tipo = INSTR_JNV;  avanzar_token(); parsear_pc(&instr); }
+
+        // --- Bloque de Reenvío a Instrucciones GPU ---
+        else if (strcmp(mnemonico, "TBUF") == 0)   { instr.tipo = INSTR_GPU_TBUF;  avanzar_token(); parsear_gpu(&instr); }
+        else if (strcmp(mnemonico, "PIXOFF") == 0) { instr.tipo = INSTR_GPU_PXOFF; avanzar_token(); parsear_gpu(&instr); }
+        else if (strcmp(mnemonico, "TILEOFF") == 0){ instr.tipo = INSTR_GPU_TLOFF; avanzar_token(); parsear_gpu(&instr); }
+        else if (strcmp(mnemonico, "SCROLL") == 0) { instr.tipo = INSTR_GPU_SCROLL; avanzar_token(); parsear_gpu(&instr); }
+
         else {
             error_sintactico("Mnemónico de instrucción desconocido '%s'", mnemonico);
         }

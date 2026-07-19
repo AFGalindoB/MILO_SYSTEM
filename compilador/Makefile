@@ -39,6 +39,9 @@ test_flags:
 test_pc:
 	make -f makefiles/Makefile.compilacion test_pc
 
+test_gpu:
+	make -f makefiles/Makefile.compilacion test_gpu
+
 
 # --------------------------------------------------------------------
 # 🧹 Limpieza General

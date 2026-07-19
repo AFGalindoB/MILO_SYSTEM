@@ -11,6 +11,7 @@ SRC_PARSER = $(SRC_DIR)/lexer/lexer.c \
              $(SRC_DIR)/parser/parser_alu.c \
              $(SRC_DIR)/parser/parser_transferencia.c \
              $(SRC_DIR)/parser/parser_pc.c
+             $(SRC_DIR)/parser/parser_gpu.c
 
 all: test_lexer test_parser
 

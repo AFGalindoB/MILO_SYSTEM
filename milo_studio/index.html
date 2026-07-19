@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Milo-Pixel Editor</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+    <aside class="sidebar-left">
+        <div class="sidebar-title">ARCHIVOS</div>
+        
+        <label for="upload-pal" class="btn-sidebar" title="Cargar paleta compilada RGB565">
+            📁 Cargar Paleta
+        </label>
+        <input type="file" id="upload-pal" accept=".txt" style="display: none;">
+
+        <label for="upload-tile" class="btn-sidebar" style="margin-top: 12px;" title="Cargar archivo de tile indexado (.txt)">
+            🖼️ Cargar Tile
+        </label>
+        <input type="file" id="upload-tile" accept=".txt" style="display: none;">
+
+        <button id="btnExportar" class="btn-sidebar" style="margin-top: 12px;">💾 Exportar Tile</button>
+    </aside>
+
+    <div class="main-container">
+        <header>
+            <h1>MILO-PIXEL</h1>
+            <p class="subtitle">SDK Gráfico v0.1 — Editor de Tiles 8x8</p>
+        </header>
+
+        <!-- El espacio de trabajo principal es nuestra sección central -->
+        <main class="workspace">
+            
+            <!-- Selector de Lienzos / Hojas de Sprites (Estilo Piskel) -->
+            <section class="sprites-sidebar" aria-label="Gestor de sprites">
+                <div class="sprites-sidebar-header">
+                    <span>TILES</span>
+                    <button id="btnAnadirSprite" class="btn-add-sprite" title="Añadir nuevo tile vacío">+</button>
+                </div>
+                <div id="listaSprites" class="sprites-list">
+                    <!-- Se generarán dinámicamente con JS -->
+                    <!-- Ejemplo de estructura de un ítem activo:
+                    <div class="sprite-item active" data-id="0">
+                        <span class="sprite-index">#00</span>
+                        <span class="sprite-name">Tile 1</span>
+                    </div> 
+                    -->
+                </div>
+            </section>
+
+            <!-- Contenedor central del lienzo y la paleta -->
+            <div class="editor-center">
+
+                <div class="file-name-container" style="margin-bottom: 12px; width: 100%; display: flex; gap: 8px; align-items: center;">
+                    <label for="inputNombreArchivo" style="font-size: 0.8rem; color: #888; text-transform: uppercase; letter-spacing: 0.5px;">Nombre:</label>
+                    <input type="text" id="inputNombreArchivo" value="sprite_indexed" placeholder="nombre_del_sprite" 
+                           style="flex-grow: 1; background-color: #1a1a1a; border: 1px solid var(--border-color); color: #fff; padding: 6px 10px; border-radius: 4px; font-family: monospace; font-size: 0.9rem;">
+                    <span style="color: #666; font-family: monospace; font-size: 0.9rem;">.txt</span>
+                </div>
+
+                <section id="canvasGrid" class="canvas-grid" aria-label="Lienzo de dibujo 8x8">
+                    <!-- Se generarán dinámicamente con JS -->
+                </section>
+
+                <section class="palette-container">
+                    <h2 class="palette-title">Paleta LUT (16 Colores):</h2>
+                    <nav id="paletteGrid" class="palette-grid" aria-label="Selector de colores">
+                        <!-- Se generarán dinámicamente con JS -->
+                    </nav>
+                </section>
+            </div>
+
+            <!-- Panel lateral derecho (Estado de la Brocha) -->
+            <aside class="sidebar-right">
+                <h3>Brocha</h3>
+                <div class="brush-status">
+                    <div class="brush-indicator">
+                        <span class="brush-label">Click Izq.</span>
+                        <div id="indicadorColorPrincipal" class="brush-preview" title="Color principal"></div>
+                    </div>
+                    <div class="brush-indicator">
+                        <span class="brush-label">Click Der.</span>
+                        <div id="indicadorColorSecundario" class="brush-preview" title="Color secundario"></div>
+                    </div>
+                </div>
+            </aside>
+
+        </main>
+    </div>
+
+    <script type="module" src="js/app.js"></script>
+</body>
+</html>

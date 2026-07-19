@@ -176,6 +176,70 @@ int codificar_instruccion(InstruccionParseada* instr, PalabraROM* salida) {
             return 1;
         }
 
+        // ==========================================
+        // GPU INSTRUCTIONS (TBUF, PIXOFF, TILEOFF, SCROLL)
+        // ==========================================
+        case INSTR_GPU_TBUF: {
+            uint32_t opcode = 0x04;
+            uint32_t fine_control = (1 << 1); // WE_TILE_BUFFER = 1
+            
+            // Bus de 24 bits empaquetado: Bits 23-8 = Índice del tile, Bits 7-0 = Dirección
+            uint32_t tile = instr->operandos.gpu_tbuf.tile & 0xFFFF;
+            uint32_t addr = instr->operandos.gpu_tbuf.addr & 0xFF;
+            uint32_t immediate = (tile << 8) | addr;
+
+            salida[0] = empaquetar_campos(opcode, 0, 0, 0, 0, fine_control, immediate);
+            return 1;
+        }
+
+        case INSTR_GPU_PXOFF: {
+            uint32_t opcode = 0x04;
+            uint32_t fine_control = (1 << 2); // WE_PIXEL_OFFSET = 1
+            
+            // Registro de 6 bits: Bits 5-3 = Y Offset (0-7), Bits 2-0 = X Offset (0-7)
+            uint32_t px = instr->operandos.gpu_off.x & 0x07;
+            uint32_t py = instr->operandos.gpu_off.y & 0x07;
+            uint32_t immediate = (py << 3) | px;
+
+            salida[0] = empaquetar_campos(opcode, 0, 0, 0, 0, fine_control, immediate);
+            return 1;
+        }
+
+        case INSTR_GPU_TLOFF: {
+            uint32_t opcode = 0x04;
+            uint32_t fine_control = (1 << 0); // WE_TILE_OFFSET = 1
+            
+            // Registro de 8 bits: Bits 7-4 = Tile Y (0-15), Bits 3-0 = Tile X (0-15)
+            uint32_t tx = instr->operandos.gpu_off.x & 0x0F;
+            uint32_t ty = instr->operandos.gpu_off.y & 0x0F;
+            uint32_t immediate = (ty << 4) | tx;
+
+            salida[0] = empaquetar_campos(opcode, 0, 0, 0, 0, fine_control, immediate);
+            return 1;
+        }
+
+        case INSTR_GPU_SCROLL: {
+            uint32_t opcode = 0x04;
+            // Escritura simultánea: WE_PIXEL_OFFSET = 1 (bit 2) y WE_TILE_OFFSET = 1 (bit 0) -> 0x05
+            uint32_t fine_control = (1 << 2) | (1 << 0);
+            
+            // Bus acoplado de 14 bits: 
+            // Bits 13-8 = Pixel Offset (Y_fino << 3 | X_fino)
+            // Bits 7-0  = Tile Offset  (Y_tile << 4 | X_tile)
+            uint32_t tx = instr->operandos.gpu_scroll.tx & 0x0F;
+            uint32_t ty = instr->operandos.gpu_scroll.ty & 0x0F;
+            uint32_t px = instr->operandos.gpu_scroll.px & 0x07;
+            uint32_t py = instr->operandos.gpu_scroll.py & 0x07;
+
+            uint32_t pixel_offset = (py << 3) | px;
+            uint32_t tile_offset  = (ty << 4) | tx;
+            uint32_t immediate    = (pixel_offset << 8) | tile_offset;
+
+            salida[0] = empaquetar_campos(opcode, 0, 0, 0, 0, fine_control, immediate);
+            return 1;
+        }
+
+
         default:
             // NOP por defecto
             salida[0] = empaquetar_campos(0, 0, 0, 0, 0, 0, 0);
