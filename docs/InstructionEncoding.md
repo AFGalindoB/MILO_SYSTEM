@@ -39,7 +39,6 @@ La unidad de control utiliza este campo para habilitar el bloque funcional corre
 | 000001 | ALU |
 | 000010 | MOV |
 | 000011 | PC  |
-| 000100 | GPU |
 
 ## Campo Register Control
 
@@ -62,18 +61,23 @@ RegSrc2: Segundo registro fuente conectado al Bus B.
 
 ## Bus C Source Selector
 
-Este campo controla el multiplexor que alimenta el Bus C y determina desde qué unidad funcional será obtenido el dato que se escribirá en el banco de registros.
+Este campo controla el multiplexor que alimenta el Bus C y determina desde qué unidad funcional será obtenido el dato que será distribuido hacia los bloques habilitados durante la ejecución de la instrucción.
 
 |       |                 |
 | ----- | --------------- |
 | 00000 | ALU             |
 | 00001 | RegSrc1         |
 | 00010 | RAM             |
-| 00011 | ROM (Inmediate) |
+| 00011 | ROM (Immediate) |
 
-El Bus C constituye el único camino de escritura hacia el banco de registros.
+El Bus C constituye el camino principal de distribución de datos dentro del procesador.
 
-El campo Bus C Source Selector controla el multiplexor asociado a este bus, determinando cuál unidad funcional tendrá permiso para colocar información sobre él durante la ejecución de la instrucción.
+Dependiendo de las señales de control activadas por la instrucción ejecutada, el valor presente sobre este bus puede ser utilizado por distintos bloques funcionales, entre ellos:
+
+- Banco de registros.
+- La GPU.
+
+El campo **Bus C Source Selector** controla el multiplexor asociado a este bus, determinando qué unidad funcional tendrá permiso para colocar información sobre él durante la ejecución de la instrucción.
 
 ## Fine Control
 
@@ -89,25 +93,28 @@ Fine Control ignorado.
 
 ### ALU
 
-| Bits  | Nombre de la Señal | Tipo      | Descripción Física                                                   |
-| ----- | ------------------ | --------- | -------------------------------------------------------------------- |
-| `8-7` | `RESERVED`         |           | Bits libres para futuras ampliaciones.                               |
-| `6-4` | `ALU_OP`           | Seleccion | Selecciona la operación ejecutada por la Unidad Aritmético Lógica.   |
-| `3`   | `CARRY_IN`         | Control   | Permite tomar el acarreo guardado a las operaciones de suma y resta. |
-| `2`   | `UPDATE_FLAGS`     | Control   | Permite actualizar todas las FLAGS.                                  |
-| `1`   | `ENABLE_ALU`       | Control   | Permite la entradade datos a la ALU                                  |
-| `0`   | `REGS_ENABLE`      | Control   | Habilita la carga del registro destino.                              |
+| Bits  | Nombre de la Señal | Tipo        | Descripción Física                                                       |
+| ----- | ------------------ | ----------- | ------------------------------------------------------------------------ |
+| `8`   | `WE_TILE_BUFFER`   | Habilitador | Permite cargar un valor en el buffer de tileset de la gpu.               |
+| `7`   | `SCROLL`           | Habilitador | Permite cargar un valor en el registro de pixel y tile offset de la gpu. |
+| `6-4` | `ALU_OP`           | Seleccion   | Selecciona la operación ejecutada por la Unidad Aritmético Lógica.       |
+| `3`   | `CARRY_IN`         | Control     | Permite tomar el acarreo guardado a las operaciones de suma y resta.     |
+| `2`   | `UPDATE_FLAGS`     | Control     | Permite actualizar todas las FLAGS.                                      |
+| `1`   | `ENABLE_ALU`       | Control     | Permite la entradade datos a la ALU                                      |
+| `0`   | `REGS_ENABLE`      | Control     | Habilita la carga del registro destino.                                  |
 
 ---
 
 ### MOV
 
-| Bits  | Nombre de la Señal | Tipo        | Descripción Física                                  |
-| ----- | ------------------ | ----------- | --------------------------------------------------- |
-| `8-3` | `RESERVED`         |             | Bits libres para parámetros del sistema.            |
-| `2`   | `ENABLE_MDR_&_MAR` | Habilitador | Habilita el modo de acceso a memoria.               |
-| `1`   | `RAM_WE`           | Habilitador | Habilita la escritura en la RAM                     |
-| `0`   | `ENABLE_REGS`      | Habilitador | Habilita la escritura en el banco de registros.     |
+| Bits  | Nombre de la Señal | Tipo        | Descripción Física                                                       |
+| ----- | ------------------ | ----------- | ------------------------------------------------------------------------ |
+| `8-5` | `RESERVED`         |             | Bits libres para parámetros del sistema.                                 |
+| `4`   | `WE_TILE_BUFFER`   | Habilitador | Permite cargar un valor en el buffer de tileset de la gpu.               |
+| `3`   | `SCROLL`           | Habilitador | Permite cargar un valor en el registro de pixel y tile offset de la gpu. |
+| `2`   | `ENABLE_MDR_&_MAR` | Habilitador | Habilita el modo de acceso a memoria.                                    |
+| `1`   | `RAM_WE`           | Habilitador | Habilita la escritura en la RAM                                          |
+| `0`   | `ENABLE_REGS`      | Habilitador | Habilita la escritura en el banco de registros.                          |
 
 ---
 
@@ -123,17 +130,6 @@ Fine Control ignorado.
 | `2`   | `WE_STACK`             | Habilitador | Permite cargar un valor en el STACK.                                 |
 | `1`   | `SEL_MUX`              | Control     | 0: ROM; 1 STACK                                                      |
 | `0`   | `PC_JUMP`              | Habilitador | Habilita la carga del program counter.                               |
-
----
-
-### GPU
-
-| Bits  | Nombre de la Señal     | Tipo        | Descripción Física                                          |
-| ----- | ---------------------- | ----------- | ----------------------------------------------------------- |
-| `8-3` | `RESERVED`             |             | Bits libres para futuras ampliaciones.                      |
-| `2`   | `WE_PIXEL_OFFSET`      | Habilitador | Permite cargar un valor en registro pixel offset de la gpu. |
-| `1`   | `WE_TILE_BUFFER`       | Habilitador | Permite cargar un valor en el buffer de tileset de la gpu.  |
-| `0`   | `WE_TILE_OFFSET`       | Habilitador | Permite cargar un valor en registro tile offset de la gpu.  |
 
 #### Acceso a memoria
 

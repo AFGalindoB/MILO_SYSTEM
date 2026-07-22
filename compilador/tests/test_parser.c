@@ -48,6 +48,25 @@ static void desempaquetar_e_imprimir(InstruccionParseada* instr) {
     const char* nombre = obtener_nombre_instruccion(instr->tipo);
     printf("[Línea %02d] Parsed: %-5s | ", instr->linea, nombre);
 
+    // ====================================================
+    // 1. IMPRESIÓN DE DESTINOS (Ortogonalidad)
+    // ====================================================
+    // Imprimimos la capa superior de destinos si existen
+    if (instr->reg_gpu || instr->tiene_rd) {
+        printf("Destinos: [");
+        if (instr->reg_gpu) {
+            printf("GPU: Reg#%d", instr->reg_gpu);
+            if (instr->tiene_rd) printf(", ");
+        }
+        if (instr->tiene_rd) {
+            printf("Rd: R%d", instr->rd);
+        }
+        printf("] | ");
+    }
+
+    // ====================================================
+    // 2. IMPRESIÓN DE OPERANDOS FUENTE
+    // ====================================================
     switch (instr->tipo) {
         case INSTR_NOP:
             printf("Sin operandos\n");
@@ -57,7 +76,7 @@ static void desempaquetar_e_imprimir(InstruccionParseada* instr) {
             printf("Categoría: SUBRUTINA    | Retorno de función (RET)\n");
             break;
 
-        // ALU Binarias (Rd, Ra, Rb) + update_flags
+        // ALU Binarias (Ra, Rb) + update_flags
         case INSTR_ADD:
         case INSTR_SUB:
         case INSTR_ADC:
@@ -67,53 +86,48 @@ static void desempaquetar_e_imprimir(InstruccionParseada* instr) {
         case INSTR_XOR:
         case INSTR_SHL:
         case INSTR_SHR:
-            printf("Categoría: ALU_BINARIA | Rd: R%d, Ra: R%d, Rb: R%d | UpdateFlags: %d\n",
-                   instr->operandos.alu.rd,
-                   instr->operandos.alu.ra,
-                   instr->operandos.alu.rb,
-                   instr->operandos.alu.update_flags);
+            printf("Categoría: ALU_BINARIA | Ra: R%d, Rb: R%d | UpdateFlags: %d\n",
+                   instr->fuentes.alu.ra,
+                   instr->fuentes.alu.rb,
+                   instr->fuentes.alu.update_flags);
             break;
 
-        // ALU Unarias (Rd, Ra) + update_flags
+        // ALU Unarias (Ra) + update_flags
         case INSTR_NOT:
-            printf("Categoría: ALU_UNARIA  | Rd: R%d, Ra: R%d | UpdateFlags: %d\n",
-                   instr->operandos.alu_unaria.rd,
-                   instr->operandos.alu_unaria.ra,
-                   instr->operandos.alu_unaria.update_flags);
+            printf("Categoría: ALU_UNARIA  | Ra: R%d | UpdateFlags: %d\n",
+                   instr->fuentes.alu_unaria.ra,
+                   instr->fuentes.alu_unaria.update_flags);
             break;
 
-        // Movimientos simples (Rd, Rs)
+        // Movimiento simple (Rs)
         case INSTR_MOV:
-            printf("Categoría: MOVIMIENTO  | Rd: R%d, Rs: R%d\n",
-                   instr->operandos.mov.rd,
-                   instr->operandos.mov.rs);
+            printf("Categoría: MOVIMIENTO  | Rs: R%d\n",
+                   instr->fuentes.mov.rs);
             break;
 
-        // Movimientos inmediatos (Rd, valor)
+        // Movimiento inmediato (valor)
         case INSTR_MOVI:
-            printf("Categoría: MOV_IMMED   | Rd: R%d, Inmediato: #%u\n",
-                   instr->operandos.movi.rd,
-                   instr->operandos.movi.valor);
+            printf("Categoría: MOV_IMMED   | Inmediato: #%u\n",
+                   instr->fuentes.movi.valor);
             break;
 
-        // Cargas de memoria (Rd, [mar])
+        // Carga de memoria ([mar])
         case INSTR_LOAD:
-            printf("Categoría: MEM_LOAD    | Rd: R%d, MAR: [R%d]\n",
-                   instr->operandos.load.rd,
-                   instr->operandos.load.mar);
+            printf("Categoría: MEM_LOAD    | MAR: [R%d]\n",
+                   instr->fuentes.load.mar);
             break;
 
-        // Escrituras en memoria (mdr, [mar])
+        // Escritura en memoria (mdr, [mar])
         case INSTR_STORE:
             printf("Categoría: MEM_STORE   | MDR: R%d, MAR: [R%d]\n",
-                   instr->operandos.store.mdr,
-                   instr->operandos.store.mar);
+                   instr->fuentes.store.mdr,
+                   instr->fuentes.store.mar);
             break;
 
         case INSTR_CMP:
-            printf("Categoría: COMPARE     | Ra: R%d, Rb: R%d | (Se evalúa como SUB R0, Ra Rb con UpdateFlags: 1)\n",
-                   instr->operandos.alu.ra,
-                   instr->operandos.alu.rb);
+            printf("Categoría: COMPARE     | Ra: R%d, Rb: R%d | (Evalúa SUB R0, Ra, Rb | UpdateFlags: 1)\n",
+                   instr->fuentes.alu.ra,
+                   instr->fuentes.alu.rb);
             break;
         
         case INSTR_JMP:
@@ -126,8 +140,8 @@ static void desempaquetar_e_imprimir(InstruccionParseada* instr) {
         case INSTR_JNN:
         case INSTR_JV:
         case INSTR_JNV:
-            printf("Categoría: CONTROL_FLG | Destino inmediato: #%u\n",
-                   instr->operandos.salto.destino);
+            printf("Categoría: CONTROL_FLG | Destino PC: #%u\n",
+                   instr->fuentes.salto.destino);
             break;
 
         default:
@@ -142,21 +156,30 @@ int main() {
     #if !PROBAR_ERROR_SINTACTICO
         "; ---- Bloque de Pruebas Exitosas ----\n"
         "NOP\n"
-        "MOVI R1, #25\n"
-        "MOV R2, R1\n"
-        "ADD.F R3, R1 R2     ; ALU Binaria estándar con actualizador de banderas (.F)\n"
-        "SUB R0, R3 R1       ; ALU Binaria sin modificar banderas\n"
-        "ADC.F R4, R2 R3     ; Nuevo mnemónico: Suma con acarreo (con .F)\n"
-        "SBC R5, R4 R1       ; Nuevo mnemónico: Resta con acarreo (sin .F)\n"
-        "NOT.F R6, R2        ; ALU Unaria con actualizador de banderas (.F)\n"
-        "NOT R7, R3          ; ALU Unaria estándar sin .F\n"
-        "LOAD R8, [R1]\n"
-        "STORE R8, [R5]\n"
-        "CMP R1 R2           ; Comparación básica (Debe parsearse sin problemas)\n"
-        "JZ #16              ; Salto si el resultado es cero (Z=1)\n"
-        "CALL #128         ; Llamada a subrutina en la dirección #128\n"
-        "RET                 ; Retorno inmediato de la subrutina\n"
-        "JNZ #8              ; Salto condicional si no es cero (Z=0)\n";
+        "MOVI R1, #25                ; MOVI estándar\n"
+        "MOVI TBUF, #100           ; MOVI ortogonal directo a registro especial\n"
+        "MOVI TBUF, R1, #50          ; MOVI ortogonal con Rd + Reg Especial\n"
+        "MOV R2, R1                  ; MOV estándar\n"
+        "MOV TBUF, R2                ; MOV ortogonal directo a registro especial\n"
+        "MOV TBUF, R3, R2            ; MOV ortogonal con Rd + Reg Especial\n"
+        "ADD.F R3, R1, R2            ; ALU Binaria estándar con .F y comas\n"
+        "ADD.F TBUF, R3, R1, R2      ; ALU Binaria ortogonal (Especial + Rd + Rs1 + Rs2)\n"
+        "SUB R0, R3, R1              ; ALU Binaria sin modificar banderas\n"
+        "ADC.F R4, R2, R3            ; Suma con acarreo\n"
+        "SBC R5, R4, R1              ; Resta con acarreo\n"
+        "NOT.F R6, R2                ; ALU Unaria estándar\n"
+        "NOT.F TBUF, R6, R2          ; ALU Unaria ortogonal (Especial + Rd + Rs)\n"
+        "NOT SCROLL, R2              ; ALU Unaria ortogonal directo a especial (Especial + Rs)\n"
+        "LOAD R8, [R1]               ; LOAD estándar\n"
+        "LOAD TBUF, R8, [R1]         ; LOAD ortogonal con Rd + Especial\n"
+        "LOAD SCROLL, [R1]            ; LOAD ortogonal directo a especial\n"
+        "STORE R8, [R5]              ; STORE estándar\n"
+        "CMP R1, R2                  ; Comparación básica con coma\n"
+        "JZ #16                      ; Salto si Z=1\n"
+        "CALL #128                 ; Llamada a subrutina\n"
+        "RET                         ; Retorno de subrutina\n"
+        "ADD.F SCROLL, R1, R2        ; Suma con actualizador de banderas y guardar resultado en GPU\n"
+        "JNZ #8                      ; Salto condicional si Z=0\n";
     #else
         "; ---- Bloque de Pruebas con Errores Sintácticos ----\n"
         "ADD R1 R2 R3         ; Error 1: Falta coma obligatoria\n"
@@ -167,51 +190,57 @@ int main() {
         "INVENTADO R1, R2     ; Error 6: Mnemónico ilegal\n"
         "NOT R5, R6 R7        ; Error 7: NOT no acepta segundo operando fuente\n"
         "ADD.F.G R8, R1 R2    ; Error 8: Doble modificador inválido\n"
-        "ADD.G R1, R2 R3      ; Error 9: Modificador inexistente\n"
+        "ADD.X R1, R2 R3      ; Error 9: Modificador inexistente\n"
         ".                    ; Error 10: Modificador invalido\n"
         "CMP R1               ; Error 11: CMP requiere dos operandos\n"
         "JMP                  ; Error 12: JMP requiere un valor inmediato\n"
         "JZ R1                ; Error 13: JZ requiere un inmediato, no un registro\n"
-        "RET R1               ; Error 14: RET no acepta parámetros\n";
+        "RET R1               ; Error 14: RET no acepta parámetros\n"
+        "MOV TBUF,            ; Error 15: MOV con registro especial sin operando fuente\n"
+        "LOAD SCROLL,         ; Error 16: LOAD con registro especial sin operando fuente\n"
+        "ADD SCROLL, R1,       ; Error 17: ADD con registro especial sin segundo operando fuente\n"
+        "SBC.F TBUF, R1,     ; Error 18: SBC con registro especial sin segundo operando fuente\n";
     #endif
 
     printf("====================================================================\n");
     printf("   🔥 EJECUTANDO TESTBENCH DEL PARSER - MILO ASM 🔥        \n");
     printf("====================================================================\n\n");
 
-    // Inicializar el lexer y arrancar el pipeline de tokens
+    // Inicializar el lexer con el código fuente en memoria
     inicializar_lexer(codigo_prueba);
-    avanzar_token();
 
-    contador_errores = 0;
+    Token tokens_linea[MAX_TOKENS_POR_LINEA];
+    int cantidad_tokens = 0;
     int lineas_procesadas = 0;
+    int es_eof = 0;
 
-    // Ciclo principal de parsing estructurado
-    while (!match(TOKEN_EOF)) {
-        lineas_procesadas++;
-        
-        InstruccionParseada instr = parsear_linea();
+    // Ciclo principal: Extrae líneas de tokens completas y las envía al parser
+    while (!es_eof) {
+        cantidad_tokens = obtener_linea_de_tokens(tokens_linea);
 
-        // Evitar procesar líneas sin instrucciones (comentarios o líneas vacías)
-        if (instr.tipo == INSTR_DESCONOCIDA) {
-            if (match(TOKEN_SALTO_LINEA)) {
-                avanzar_token();
-            }
-            continue; 
+        if (cantidad_tokens == 0) {
+            break;
         }
 
-        // Desempaquetado genérico del AST sin requerir switches gigantes en la rutina de test
-        desempaquetar_e_imprimir(&instr);
+        // Verificar si la línea termina en EOF para salir del bucle al terminar de parsear
+        if (tokens_linea[cantidad_tokens - 1].tipo == TOKEN_EOF) {
+            es_eof = 1;
+        }
 
-        if (match(TOKEN_SALTO_LINEA)) {
-            avanzar_token();
+        InstruccionParseada instr = parsear_linea_tokens(tokens_linea, cantidad_tokens);
+
+        // Si la línea tenía contenido válido (no era comentario ni línea vacía)
+        if (instr.tipo != INSTR_DESCONOCIDA) {
+            lineas_procesadas++;
+            desempaquetar_e_imprimir(&instr);
         }
     }
 
-    emitir_informe_compilacion(codigo_prueba);
+    // Emitir el reporte gráfico de errores
+    emitir_informe_compilacion();
 
     printf("\n====================================================================\n");
-    printf(" Análisis sintáctico completado. %d instrucciones revisadas.\n", lineas_procesadas);
+    printf(" Análisis sintáctico completado. %d instrucciones procesadas.\n", lineas_procesadas);
     printf("====================================================================\n");
 
     return (contador_errores > 0) ? 1 : 0;

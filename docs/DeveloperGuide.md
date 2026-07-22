@@ -74,7 +74,7 @@ La estructura física de las instrucciones se documenta por separado mediante la
 
 Este documento define cómo se organiza cada palabra de control dentro de la memoria ROM y el significado de cada uno de sus campos.
 
-- [Instruction Encoding Specification](./InstructionSet.md)
+- [Instruction Encoding Specification](./InstructionEncoding.md)
 
 ## Niveles de abstracción
 

@@ -19,6 +19,8 @@ typedef enum {
     TOKEN_ERROR
 } TipoToken;
 
+#define MAX_TOKENS_POR_LINEA 16
+
 // Tu estructura de Token optimizada
 typedef struct {
     TipoToken tipo;
@@ -32,5 +34,7 @@ typedef struct {
 void inicializar_lexer(const char* dir_mem_codigo_fuente);
 Token obtener_siguiente_token(void);
 const char* tipo_token_a_string(TipoToken tipo);
+
+int obtener_linea_de_tokens(Token* linea_tokens);
 
 #endif // LEXER_H

@@ -5,101 +5,135 @@
 #include <string.h>
 #include <stdarg.h>
 
-// Definición de las variables globales compartidas del módulo
-Token token_actual;
 uint32_t contador_errores = 0;
-
-// Bandera interna para evitar errores en cascada dentro de la misma instrucción
-static int en_panico = 0;
-
-// Búfer privado para almacenar el historial de errores
 static RegistroError historial_errores[MAX_ERRORES];
 
-/**
- * @brief Extrae una línea específica del código fuente y la copia de forma segura en un búfer.
- */
-static void obtener_linea_codigo(const char* codigo_fuente, int linea_objetivo, char* buffer_salida, size_t max_size) {
-    int linea_actual = 1;
-    size_t i = 0;
-    size_t j = 0;
+Token* linea_tokens = NULL;
+int total_tokens = 0;
 
-    // Buscar el inicio de la línea objetivo
-    while (codigo_fuente[i] != '\0' && linea_actual < linea_objetivo) {
-        if (codigo_fuente[i] == '\n') {
-            linea_actual++;
-        }
-        i++;
+int match_tipo(int offset, TipoToken tipo) {
+    if (offset >= total_tokens){
+        return 0;
     }
 
-    // Copiar los caracteres de la línea hasta el salto de línea o fin de cadena
-    while (codigo_fuente[i] != '\0' && codigo_fuente[i] != '\n' && codigo_fuente[i] != '\r' && j < max_size - 1) {
-        buffer_salida[j++] = codigo_fuente[i++];
-    }
-    buffer_salida[j] = '\0';
+    return linea_tokens[offset].tipo == tipo;
 }
 
-void emitir_informe_compilacion(const char* codigo_fuente) {
-    if (contador_errores == 0) {
-        printf("\n====================================================================\n");
-        printf(" 🎉 COMPILACIÓN COMPLETADA EXITOSAMENTE (0 Errores) 🎉\n");
-        printf("====================================================================\n");
-        printf(" El análisis sintáctico ha terminado sin novedades.\n");
-        printf(" Estado del sistema: EXCELENTE. Listo para codificación.\n");
-        printf("====================================================================\n\n");
-        return;
+int match_lexema(int offset, const char* lexema) {
+    if (offset >= total_tokens){
+        return 0;
     }
 
-    printf("\n====================================================================\n");
-    printf(" 🔴 REPORTE DE ERRORES SINTÁCTICOS DETECTADOS (%d/%d)\n", contador_errores, MAX_ERRORES);
-    printf("====================================================================\n");
+    return strcmp(linea_tokens[offset].lexema, lexema) == 0;
+}
 
-    char linea_codigo[256];
+static uint8_t mapear_registro_especial(uint8_t offset) {
+    if (linea_tokens[offset].tipo == TOKEN_IDENTIFICADOR) {
+        if (strcmp(linea_tokens[offset].lexema, "TBUF") == 0)   { return 1; }
+        if (strcmp(linea_tokens[offset].lexema, "SCROLL") == 0) { return 2; }
+    }
+    return 0;
+}
 
-    for (uint32_t i = 0; i < contador_errores; i++) {
-        int linea_err = historial_errores[i].linea;
-        int col_err = historial_errores[i].columna;
+static int contar_tokens_de_tipo(TipoToken tipo) {
+    int conteo = 0;
+    for (int i = 0; i < total_tokens; i++) {
+        if (linea_tokens[i].tipo == tipo) {
+            conteo++;
+        }
+    }
+    return conteo;
+}
 
-        printf("\n [%u] Error sintáctico en Línea %d, Columna %d:\n", i + 1, linea_err, col_err);
-        printf("     Detalle: %s\n", historial_errores[i].mensaje);
-        printf("     Causa: se encontró el lexema '%s' de tipo [%s]\n\n", historial_errores[i].lexema, historial_errores[i].tipo_token_str);
+uint8_t obtener_destinos_ortogonales(InstruccionParseada* instr) {
+    uint8_t n = 1; // Índice del primer token después del mnemónico
+    if (match_tipo(n, TOKEN_MODIFICADOR)) {
+        n++; // Avanzamos si hay un modificador
+    }
 
-        // Extraer y pintar la línea del error
-        obtener_linea_codigo(codigo_fuente, linea_err, linea_codigo, sizeof(linea_codigo));
-        printf("     %4d | %s\n", linea_err, linea_codigo);
+    uint8_t reg_especial = mapear_registro_especial(n);
+
+    if(reg_especial) {
+        instr->reg_gpu = reg_especial;
+
+        if (!match_tipo(n + 1, TOKEN_COMA)) {
+            reportar_error(n + 1, TOKEN_COMA, "Se esperaba una coma ',' después del registro especial.");
+            return 0;
+        }
+
+        n += 2; 
         
-        // Generar y alinear el indicador visual '^' en la columna correspondiente
-        printf("            "); // Espaciado base para "     linea | "
-        for (int k = 1; k < col_err; k++) {
-            // Manejar la alineación por tabuladores reemplazándolos con espacios
-            if (linea_codigo[k - 1] == '\t') {
-                printf("    ");
-            } else {
-                printf(" ");
-            }
+        uint8_t registros_minimos = 0;
+
+        if (instr->tipo == INSTR_MOVI) {
+            registros_minimos = 1;
+        } else if (instr->tipo == INSTR_MOV || instr->tipo == INSTR_LOAD || instr->tipo == INSTR_NOT) {
+            registros_minimos = 2;
+        }else{
+            registros_minimos = 3;
         }
-        printf(" ^\n");
-        printf(" --------------------------------------------------------------------\n");
+
+        uint8_t registros_encontrados = contar_tokens_de_tipo(TOKEN_REGISTRO) + 1; // +1 para incluir el registro especial como un registro.
+
+        // Si hay MÁS registros de los mínimos requeridos por la fuente, el primero es obligatoriamente Rd
+        if (match_tipo(n, TOKEN_REGISTRO) && registros_encontrados > registros_minimos) {
+            instr->tiene_rd = 1;
+            instr->rd = linea_tokens[n].valor;
+            
+            n += 2;
+        }
+
+    }else{
+        if (!match_tipo(n, TOKEN_REGISTRO)) {
+            reportar_error(n, TOKEN_REGISTRO, "Se esperaba un registro destino después del mnemónico.");
+            return 0 ;
+        }
+
+        if (!match_tipo(n + 1, TOKEN_COMA)) {
+            reportar_error(n + 1, TOKEN_COMA, "Se esperaba una coma ',' después del registro destino.");
+            return 0;
+        }
+
+        instr->tiene_rd = 1;
+        instr->rd = linea_tokens[n].valor;
+        n += 2; // Avanzamos al siguiente token después del registro destino y la coma
     }
 
-    printf("\n Resultado del proceso: COMPILACIÓN ABORTADA DEBIDO A ERRORES.\n");
-    printf("====================================================================\n\n");
+    return n; // Retornamos el índice del primer token después de los destinos ortogonales
 }
 
-static void error_sintactico(const char* formato, ...) {
-    
-    if (en_panico) return;
-
-    en_panico = 1;
-
-    if (contador_errores >= MAX_ERRORES) return;
-    
+void reportar_error(int offset_error, TipoToken tipo_error, const char* formato, ...) {
     
     RegistroError* err = &historial_errores[contador_errores];
-    err->linea = token_actual.linea;
-    err->columna = token_actual.columna;
+    
+    err->linea_completa_str[0] = '\0';
+    int columna_error = 0;
+    int encontrado = 0;
 
-    strncpy(err->lexema, token_actual.lexema, sizeof(err->lexema) - 1);
-    strncpy(err->tipo_token_str, tipo_token_a_string(token_actual.tipo), sizeof(err->tipo_token_str) - 1);
+    err->linea = linea_tokens[0].linea;
+    strncpy(err->tipo_token_str, tipo_token_a_string(tipo_error), sizeof(err->tipo_token_str) - 1);
+
+    for (int i = 0; i < total_tokens; i++) {
+
+        if (i == offset_error) {
+            err->columna = linea_tokens[i].columna;
+            encontrado = 1;
+        }
+
+        strncat(err->linea_completa_str, linea_tokens[i].lexema, sizeof(err->linea_completa_str) - strlen(err->linea_completa_str) - 1);
+
+        if (i < total_tokens - 1) {
+            strncat(err->linea_completa_str, " ", sizeof(err->linea_completa_str) - strlen(err->linea_completa_str) - 1);
+        }
+
+        if (!encontrado) {
+            columna_error += strlen(linea_tokens[i].lexema) + 1; 
+        }
+    }
+
+    if (!encontrado) {
+        err->columna = columna_error + 1; 
+    }
 
     va_list args;
     va_start(args, formato);
@@ -109,113 +143,102 @@ static void error_sintactico(const char* formato, ...) {
     contador_errores++;
 
     if (contador_errores >= MAX_ERRORES) {
-        printf("\n⚠️  Se ha alcanzado el límite máximo de errores sintácticos (%d).\n", MAX_ERRORES);
-        emitir_informe_compilacion(NULL);
+        printf("\n⚠️ Límite máximo de errores alcanzado (%d).\n", MAX_ERRORES);
         exit(EXIT_FAILURE);
     }
+}
 
-    // Sincronizar: saltamos el resto de la línea ruidosa
-    while (!match(TOKEN_SALTO_LINEA) && !match(TOKEN_EOF)) {
-        avanzar_token();
+void emitir_informe_compilacion(void) { // <-- ¡Ya no requiere parámetros de texto!
+    if (contador_errores == 0) {
+        printf("\n====================================================================\n");
+        printf(" 🎉 COMPILACIÓN COMPLETADA EXITOSAMENTE (0 Errores) 🎉\n");
+        printf("====================================================================\n\n");
+        return;
     }
-}
 
-void avanzar_token(void) {
-    token_actual = obtener_siguiente_token();
-}
+    printf("\n====================================================================\n");
+    printf(" 🔴 REPORTE DE ERRORES SINTÁCTICOS DETECTADOS (%d)\n", contador_errores);
+    printf("====================================================================\n");
 
-int match(TipoToken tipo) {
-    return token_actual.tipo == tipo;
-}
+    for (uint32_t i = 0; i < contador_errores; i++) {
+        RegistroError* err = &historial_errores[i];
 
-int match_lexema(TipoToken tipo, const char* lexema) {
-    return (token_actual.tipo == tipo && strcmp(token_actual.lexema, lexema) == 0);
-}
+        printf("\n [%u] Error sintáctico en Línea %d, Columna %d:\n", i + 1, err->linea, err->columna);
+        printf("     Detalle: %s\n", err->mensaje);
 
-void consumir(TipoToken tipo_esperado, const char* mensaje_error) {
-    if (token_actual.tipo == tipo_esperado) {
-        avanzar_token();
-    } else {
-        error_sintactico("%s", mensaje_error);
+        // Imprimir la línea reconstruida que guardamos
+        printf("     %4d | %s\n", err->linea, err->linea_completa_str);
+        
+        // Graficar el puntero '^' usando la columna almacenada
+        printf("            "); // Margen base para alinear con el separador '| '
+        for (int k = 1; k < err->columna; k++) {
+            printf(" ");
+        }
+        printf(" ^\n");
+        printf(" --------------------------------------------------------------------\n");
     }
+
+    printf("\n Resultado del proceso: COMPILACIÓN ABORTADA.\n");
+    printf("====================================================================\n\n");
 }
 
-void consumir_lexema(TipoToken tipo_esperado, const char* lexema_esperado, const char* mensaje_error) {
-    if (token_actual.tipo == tipo_esperado && strcmp(token_actual.lexema, lexema_esperado) == 0) {
-        avanzar_token();
-    } else {
-        error_sintactico("%s", mensaje_error);
-    }
-}
-
-InstruccionParseada parsear_linea(void) {
+InstruccionParseada parsear_linea_tokens(Token* tokens, int cantidad_tokens) {
     InstruccionParseada instr;
     memset(&instr, 0, sizeof(InstruccionParseada));
-    
-    while (match(TOKEN_SALTO_LINEA)) {
-        avanzar_token();
-    }
 
-    en_panico = 0;
-    
-    if (match(TOKEN_EOF)) {
+    // Inicializamos el entorno de la línea
+    linea_tokens = tokens;
+    total_tokens = cantidad_tokens;
+
+    instr.linea = linea_tokens[0].linea; // Guardamos la línea para reportes de error
+
+    // Si es una línea vacía o el final del archivo, terminamos de inmediato
+    if (total_tokens == 0 || match_tipo(0, TOKEN_EOF)) {
         instr.tipo = INSTR_DESCONOCIDA;
         return instr;
     }
-    
-    instr.linea = token_actual.linea;
-    
-    if (match(TOKEN_IDENTIFICADOR)) {
-        const char* mnemonico = token_actual.lexema;
-        
-        if (strcmp(mnemonico, "NOP") == 0) {
-            instr.tipo = INSTR_NOP;
-            avanzar_token();
-        } 
-        // --- Bloque de Reenvío a Movimientos y Transferencias ---
-        else if (strcmp(mnemonico, "MOV") == 0)   { instr.tipo = INSTR_MOV;  avanzar_token(); parsear_movimiento(&instr); }
-        else if (strcmp(mnemonico, "MOVI") == 0)  { instr.tipo = INSTR_MOVI; avanzar_token(); parsear_movimiento(&instr); }
-        else if (strcmp(mnemonico, "LOAD") == 0)  { instr.tipo = INSTR_LOAD; avanzar_token(); parsear_movimiento(&instr); }
-        else if (strcmp(mnemonico, "STORE") == 0) { instr.tipo = INSTR_STORE; avanzar_token(); parsear_movimiento(&instr); }
-        
+
+    // Cada instrucción DEBE comenzar con un Mnemónico (TOKEN_IDENTIFICADOR)
+    if (match_tipo(0, TOKEN_IDENTIFICADOR)) {
+        const char* mnemonico = linea_tokens[0].lexema;
+
+        if (strcmp(mnemonico, "NOP") == 0) {instr.tipo = INSTR_NOP;}
+        else if (strcmp(mnemonico, "MOV") == 0)   { instr.tipo = INSTR_MOV;   parsear_movimiento(&instr); }
+        else if (strcmp(mnemonico, "MOVI") == 0)  { instr.tipo = INSTR_MOVI;  parsear_movimiento(&instr); }
+        else if (strcmp(mnemonico, "LOAD") == 0)  { instr.tipo = INSTR_LOAD;  parsear_movimiento(&instr); }
+        else if (strcmp(mnemonico, "STORE") == 0) { instr.tipo = INSTR_STORE; parsear_movimiento(&instr); }
+
         // --- Bloque de Reenvío a ALU ---
-        else if (strcmp(mnemonico, "ADD") == 0) { instr.tipo = INSTR_ADD; avanzar_token(); parsear_alu(&instr); }
-        else if (strcmp(mnemonico, "ADC") == 0) { instr.tipo = INSTR_ADC; avanzar_token(); parsear_alu(&instr); }
-        else if (strcmp(mnemonico, "SUB") == 0) { instr.tipo = INSTR_SUB; avanzar_token(); parsear_alu(&instr); }
-        else if (strcmp(mnemonico, "SBC") == 0) { instr.tipo = INSTR_SBC; avanzar_token(); parsear_alu(&instr); }
-        else if (strcmp(mnemonico, "AND") == 0) { instr.tipo = INSTR_AND; avanzar_token(); parsear_alu(&instr); }
-        else if (strcmp(mnemonico, "OR") == 0)  { instr.tipo = INSTR_OR;  avanzar_token(); parsear_alu(&instr); }
-        else if (strcmp(mnemonico, "XOR") == 0) { instr.tipo = INSTR_XOR; avanzar_token(); parsear_alu(&instr); }
-        else if (strcmp(mnemonico, "NOT") == 0) { instr.tipo = INSTR_NOT; avanzar_token(); parsear_alu(&instr); }
-        else if (strcmp(mnemonico, "SHL") == 0) { instr.tipo = INSTR_SHL; avanzar_token(); parsear_alu(&instr); }
-        else if (strcmp(mnemonico, "SHR") == 0) { instr.tipo = INSTR_SHR; avanzar_token(); parsear_alu(&instr); }
+        else if (strcmp(mnemonico, "ADD") == 0) { instr.tipo = INSTR_ADD; parsear_alu(&instr); }
+        else if (strcmp(mnemonico, "ADC") == 0) { instr.tipo = INSTR_ADC; parsear_alu(&instr); }
+        else if (strcmp(mnemonico, "SUB") == 0) { instr.tipo = INSTR_SUB; parsear_alu(&instr); }
+        else if (strcmp(mnemonico, "SBC") == 0) { instr.tipo = INSTR_SBC; parsear_alu(&instr); }
+        else if (strcmp(mnemonico, "AND") == 0) { instr.tipo = INSTR_AND; parsear_alu(&instr); }
+        else if (strcmp(mnemonico, "OR") == 0)  { instr.tipo = INSTR_OR;  parsear_alu(&instr); }
+        else if (strcmp(mnemonico, "XOR") == 0) { instr.tipo = INSTR_XOR; parsear_alu(&instr); }
+        else if (strcmp(mnemonico, "NOT") == 0) { instr.tipo = INSTR_NOT; parsear_alu(&instr); }
+        else if (strcmp(mnemonico, "SHL") == 0) { instr.tipo = INSTR_SHL; parsear_alu(&instr); }
+        else if (strcmp(mnemonico, "SHR") == 0) { instr.tipo = INSTR_SHR; parsear_alu(&instr); }
 
         // --- Bloque de Control de Flujo (CMP, Saltos, Subrutinas) ---
-        else if (strcmp(mnemonico, "CMP") == 0) { instr.tipo = INSTR_CMP; avanzar_token(); parsear_pc(&instr); }
-        else if (strcmp(mnemonico, "RET") == 0) { instr.tipo = INSTR_RET; avanzar_token(); }
-        else if (strcmp(mnemonico, "JMP") == 0)  { instr.tipo = INSTR_JMP;  avanzar_token(); parsear_pc(&instr); }
-        else if (strcmp(mnemonico, "CALL") == 0) { instr.tipo = INSTR_CALL; avanzar_token(); parsear_pc(&instr); }
-        else if (strcmp(mnemonico, "JZ") == 0)   { instr.tipo = INSTR_JZ;   avanzar_token(); parsear_pc(&instr); }
-        else if (strcmp(mnemonico, "JNZ") == 0)  { instr.tipo = INSTR_JNZ;  avanzar_token(); parsear_pc(&instr); }
-        else if (strcmp(mnemonico, "JC") == 0)   { instr.tipo = INSTR_JC;   avanzar_token(); parsear_pc(&instr); }
-        else if (strcmp(mnemonico, "JNC") == 0)  { instr.tipo = INSTR_JNC;  avanzar_token(); parsear_pc(&instr); }
-        else if (strcmp(mnemonico, "JN") == 0)   { instr.tipo = INSTR_JN;   avanzar_token(); parsear_pc(&instr); }
-        else if (strcmp(mnemonico, "JNN") == 0)  { instr.tipo = INSTR_JNN;  avanzar_token(); parsear_pc(&instr); }
-        else if (strcmp(mnemonico, "JV") == 0)   { instr.tipo = INSTR_JV;   avanzar_token(); parsear_pc(&instr); }
-        else if (strcmp(mnemonico, "JNV") == 0)  { instr.tipo = INSTR_JNV;  avanzar_token(); parsear_pc(&instr); }
+        else if (strcmp(mnemonico, "CMP") == 0)  { instr.tipo = INSTR_CMP;  parsear_pc(&instr); }
+        else if (strcmp(mnemonico, "JMP") == 0)  { instr.tipo = INSTR_JMP;  parsear_pc(&instr); }
+        else if (strcmp(mnemonico, "JZ") == 0)   { instr.tipo = INSTR_JZ;   parsear_pc(&instr); }
+        else if (strcmp(mnemonico, "JNZ") == 0)  { instr.tipo = INSTR_JNZ;  parsear_pc(&instr); }
+        else if (strcmp(mnemonico, "JC") == 0)   { instr.tipo = INSTR_JC;   parsear_pc(&instr); }
+        else if (strcmp(mnemonico, "JNC") == 0)  { instr.tipo = INSTR_JNC;  parsear_pc(&instr); }
+        else if (strcmp(mnemonico, "JN") == 0)   { instr.tipo = INSTR_JN;   parsear_pc(&instr); }
+        else if (strcmp(mnemonico, "JNN") == 0)  { instr.tipo = INSTR_JNN;  parsear_pc(&instr); }
+        else if (strcmp(mnemonico, "JV") == 0)   { instr.tipo = INSTR_JV;   parsear_pc(&instr); }
+        else if (strcmp(mnemonico, "JNV") == 0)  { instr.tipo = INSTR_JNV;  parsear_pc(&instr); }
+        else if (strcmp(mnemonico, "CALL") == 0) { instr.tipo = INSTR_CALL; parsear_pc(&instr); }
+        else if (strcmp(mnemonico, "RET") == 0)  { instr.tipo = INSTR_RET; } 
 
-        // --- Bloque de Reenvío a Instrucciones GPU ---
-        else if (strcmp(mnemonico, "TBUF") == 0)   { instr.tipo = INSTR_GPU_TBUF;  avanzar_token(); parsear_gpu(&instr); }
-        else if (strcmp(mnemonico, "PIXOFF") == 0) { instr.tipo = INSTR_GPU_PXOFF; avanzar_token(); parsear_gpu(&instr); }
-        else if (strcmp(mnemonico, "TILEOFF") == 0){ instr.tipo = INSTR_GPU_TLOFF; avanzar_token(); parsear_gpu(&instr); }
-        else if (strcmp(mnemonico, "SCROLL") == 0) { instr.tipo = INSTR_GPU_SCROLL; avanzar_token(); parsear_gpu(&instr); }
+        else { instr.tipo = INSTR_DESCONOCIDA; }
 
-        else {
-            error_sintactico("Mnemónico de instrucción desconocido '%s'", mnemonico);
-        }
     } else {
-        error_sintactico("Se esperaba un mnemónico válido al inicio de la línea de comandos");
+        reportar_error(0, TOKEN_IDENTIFICADOR, "Se esperaba un mnemónico válido (identificador) al comienzo de la línea");
     }
-    
+
     return instr;
 }

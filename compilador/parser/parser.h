@@ -36,11 +36,6 @@ typedef enum {
     INSTR_JV,
     INSTR_JNV,
 
-    INSTR_GPU_TBUF,
-    INSTR_GPU_PXOFF,
-    INSTR_GPU_TLOFF,
-    INSTR_GPU_SCROLL,
-
     INSTR_DESCONOCIDA
 } TipoInstruccion;
 
@@ -48,19 +43,38 @@ typedef struct {
     TipoInstruccion tipo;
     uint32_t linea;
     
-    union {
-        struct { uint8_t rd; uint8_t ra; uint8_t rb; uint8_t update_flags; } alu;
-        struct { uint8_t rd; uint8_t ra; uint8_t update_flags; } alu_unaria;
-        struct { uint8_t rd; uint8_t rs; } mov;
-        struct { uint8_t rd; uint32_t valor; } movi;
-        struct { uint8_t rd; uint8_t mar; } load;
-        struct { uint8_t mdr; uint8_t mar; } store;
-        struct { uint32_t destino; } salto;
+    // ====================================================
+    // CAPA DE DESTINOS (Buses de Escritura / Orto-gonalidad)
+    // ====================================================
+    uint8_t reg_gpu;        // ID del registro especial (TBUF, SCROLL...)
+    
+    int tiene_rd;           // Booleano: ¿Escribe en el Banco de Registros?
+    uint8_t rd;             // ID del registro general (R0 - R15)
 
-        struct { uint32_t addr; uint32_t tile;} gpu_tbuf;
-        struct { uint32_t x; uint32_t y; } gpu_off;
-        struct { uint32_t tx; uint32_t ty; uint32_t px; uint32_t py;} gpu_scroll;
-    } operandos;
+    // ====================================================
+    // CAPA DE OPERANDOS FUENTE (Unidades Funcionales)
+    // ====================================================
+    union {
+        // La ALU solo necesita saber sus fuentes y si altera banderas
+        struct { uint8_t ra; uint8_t rb; uint8_t update_flags; } alu;
+        struct { uint8_t ra; uint8_t update_flags; } alu_unaria;
+        
+        // MOV solo necesita su fuente
+        struct { uint8_t rs; } mov;
+        
+        // MOVI solo necesita su constante
+        struct { uint32_t valor; } movi;
+        
+        // LOAD solo necesita el puntero de dirección
+        struct { uint8_t mar; } load;
+        
+        // STORE es el único que no usa destinos superiores (usa fuentes fijas)
+        struct { uint8_t mdr; uint8_t mar; } store;
+        
+        // Saltos de flujo
+        struct { uint32_t destino; } salto;
+    } fuentes;
+    
 } InstruccionParseada;
 
 #define MAX_ERRORES 20
@@ -68,28 +82,28 @@ typedef struct {
 typedef struct {
     int linea;
     int columna;
-    char lexema[64];
+    char linea_completa_str[256];
     char tipo_token_str[32];
     char mensaje[256];
 } RegistroError;
 
-extern Token token_actual;
+extern Token* linea_tokens;
+extern int total_tokens;
 extern uint32_t contador_errores;
 
-void avanzar_token(void);
-int match(TipoToken tipo);
-int match_lexema(TipoToken tipo, const char* lexema);
+InstruccionParseada parsear_linea_tokens(Token* tokens, int cantidad_tokens);
 
-void consumir(TipoToken tipo_esperado, const char* mensaje_error);
-void consumir_lexema(TipoToken tipo_esperado, const char* lexema_esperado, const char* mensaje_error);
+int match_lexema(int offset, const char* lexema);
+int match_tipo(int offset, TipoToken tipo);
+void reportar_error(int offset_error, TipoToken tipo_error, const char* formato, ...);
 
-// Interfaces de parsing
-InstruccionParseada parsear_linea(void);
+// Prototipos de submódulos de parseo
 void parsear_movimiento(InstruccionParseada* instr);
 void parsear_alu(InstruccionParseada* instr);
 void parsear_pc(InstruccionParseada* instr);
-void parsear_gpu(InstruccionParseada* instr);
 
-void emitir_informe_compilacion(const char* codigo_fuente);
+uint8_t obtener_destinos_ortogonales(InstruccionParseada* instr);
+
+void emitir_informe_compilacion(void);
 
 #endif // PARSER_H

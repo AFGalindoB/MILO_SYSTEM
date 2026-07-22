@@ -165,6 +165,41 @@ Token obtener_siguiente_token(void) {
     return crear_token(TOKEN_EOF, "EOF", 0, linea_actual, columna_actual);
 }
 
+int obtener_linea_de_tokens(Token* linea_tokens) {
+    int contador = 0;
+
+    while (contador < MAX_TOKENS_POR_LINEA - 1) {
+        Token t = obtener_siguiente_token();
+
+        // Caso 1: Encontramos un salto de línea
+        if (t.tipo == TOKEN_SALTO_LINEA) {
+            // Si la línea estaba vacía (ej. múltiples enters seguidos),
+            // continuamos buscando para no regresarle una línea vacía al parser.
+            if (contador == 0) {
+                continue;
+            }
+            // Si ya teníamos tokens acumulados, el \n marca el fin de ESTA línea.
+            break; 
+        }
+
+        // Caso 2: Llegamos al final del archivo
+        if (t.tipo == TOKEN_EOF) {
+            if (contador > 0) {
+                // Si había algo en la línea antes del EOF, guardamos el EOF al final
+                // para que el parser sepa que aquí termina todo y salimos.
+                linea_tokens[contador++] = t;
+            }
+            break;
+        }
+
+        // Caso 3: Es un token válido o un error, lo agregamos a la línea actual
+        linea_tokens[contador] = t;
+        contador++;
+    }
+
+    return contador; // Retorna cuántos tokens tiene esta línea limpia
+}
+
 const char* tipo_token_a_string(TipoToken tipo) {
     switch (tipo) {
         case TOKEN_IDENTIFICADOR: return "IDENTIFICADOR";

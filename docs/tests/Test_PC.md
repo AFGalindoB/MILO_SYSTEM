@@ -24,8 +24,7 @@ JMP MAIN ; Saltar sobre la función
 ;-------------------------
 ; Función sumar
 ;-------------------------
-SUMAR:
-    ; while (R1 == 5)
+SUMAR: ; while (R1 == 5)
 
 BUCLE:
     CMP R1, R5      ; R5 contiene 5

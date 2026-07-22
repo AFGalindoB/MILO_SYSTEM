@@ -196,70 +196,93 @@ Toda esa responsabilidad pertenece a la CPU.
 
 ## Interfaz Hardware
 
-La GPU es controlada mediante un conjunto de registros y buses de datos accesibles por la CPU.
+La GPU expone un conjunto de registros accesibles desde la CPU mediante el Bus C del procesador.
 
-### Registro Pixel Offset
+Las instrucciones que habilitan las señales correspondientes pueden escribir simultáneamente en uno o varios registros de la GPU utilizando el valor presente en dicho bus.
+
+---
+
+### Escritura de Offset
+
+El registro de desplazamiento utiliza un bus de 14 bits donde los campos de desplazamiento fino y grueso se encuentran empaquetados en una única palabra.
+
+| Bits    | Destino         | Tamaño |
+| ------- | --------------- | ------ |
+| `13-10` | Tile Offset Y   | 4 bits |
+| `9-7`   | Pixel Offset Y  | 3 bits |
+| `6-3`   | Tile Offset X   | 4 bits |
+| `2-0`   | Pixel Offset X  | 3 bits |
+
+Esta organización permite actualizar simultáneamente el desplazamiento fino y el desplazamiento grueso mediante una única operación de escritura.
+
+---
+
+#### Registro Pixel Offset
 
 Ancho: **6 bits**
 
 | Bits  | Campo    | Descripción                                   |
 | ----- | -------- | --------------------------------------------- |
-| `5-3` | Y Offset | Desplazamiento fino vertical (0-7 píxeles).   |
-| `2-0` | X Offset | Desplazamiento fino horizontal (0-7 píxeles). |
+| `9-7` | Y Offset | Desplazamiento fino vertical (0–7 píxeles).   |
+| `2-0` | X Offset | Desplazamiento fino horizontal (0–7 píxeles). |
 
-Cuando una suma produce un acarreo, este se propaga al registro **Tile Offset** correspondiente.
+El Pixel Offset representa el desplazamiento interno dentro de un tile.
+
+Cuando alguno de sus campos produce un desbordamiento durante el cálculo de direcciones, el acarreo se propaga automáticamente hacia el campo correspondiente del Tile Offset.
 
 ---
 
-### Registro Tile Offset
+#### Registro Tile Offset
 
 Ancho: **8 bits**
 
-| Bits  | Campo  | Descripción                                |
-| ----- | ------ | ------------------------------------------ |
-| `7-4` | Tile Y | Desplazamiento vertical del Tile Buffer.   |
-| `3-0` | Tile X | Desplazamiento horizontal del Tile Buffer. |
+| Bits    | Campo  | Descripción                                |
+| ------- | ------ | ------------------------------------------ |
+| `13-10` | Tile Y | Desplazamiento vertical del Tile Buffer.   |
+| `6-3`   | Tile X | Desplazamiento horizontal del Tile Buffer. |
 
-Este registro define el tile inicial desde el cual comienza la lectura del Tile Buffer.
+Este registro determina el tile desde el cual comienza la lectura del Tile Buffer durante el proceso de renderizado.
 
-## Propagación del Carry
+El Tile Offset permite implementar scroll grueso y posibilita el uso del Tile Buffer como una estructura circular.
 
-El Pixel Offset y el Tile Offset forman un único desplazamiento lógico.
+---
 
-Cuando el Pixel Offset produce un desbordamiento:
+### Escritura del Tile Buffer
 
-X Pixel Offset → Carry → Tile Offset X
-
-Y Pixel Offset → Carry → Tile Offset Y
-
-El desbordamiento del Tile Offset se descarta, implementando un comportamiento circular sobre el Tile Buffer.
-
-## Escritura de Offset
-
-La CPU escribe simultáneamente ambos registros mediante un bus de 14 bits.
-
-| Bits   | Destino      |
-| ------ | ------------ |
-| `13-8` | Pixel Offset |
-| `7-0`  | Tile Offset  |
-
-## Escritura del Tile Buffer
-
-Cada operación de escritura utiliza un bus de 24 bits.
+La GPU permite modificar individualmente cualquier entrada del Tile Buffer mediante un bus de 24 bits.
 
 | Bits   | Campo           | Descripción                                                               |
 | ------ | --------------- | ------------------------------------------------------------------------- |
 | `23-8` | Índice del tile | Selecciona el recurso gráfico almacenado en la ROM.                       |
 | `7-0`  | Dirección       | Selecciona la posición dentro del Tile Buffer donde se almacenará el tile.|
 
-## Buses
+La dirección selecciona la posición dentro del Tile Buffer que será actualizada, mientras que el Tile ID identifica el recurso gráfico que será renderizado en dicha posición.
+
+---
+
+## Propagación del Carry
+
+El Pixel Offset y el Tile Offset forman conjuntamente un único desplazamiento lógico.
+
+Durante el cálculo de la dirección de lectura, el hardware realiza la suma del Pixel Offset con la posición actual del raster.
+
+Si el desplazamiento fino produce un acarreo, este incrementa automáticamente el campo correspondiente del Tile Offset.
+
+```text
+Pixel Offset X ── Carry ──► Tile Offset X
+
+Pixel Offset Y ── Carry ──► Tile Offset Y
+```
+
+El desbordamiento del Tile Offset se descarta, produciendo un comportamiento circular sobre el Tile Buffer.
+
+## Memoria Usada
 
 | Bus                 |   Ancho | Uso                             |
 | ------------------- | ------- | ------------------------------- |
 | Pixel Offset        |  6 bits | Scroll fino                     |
 | Tile Offset         |  8 bits | Scroll grueso                   |
-| Tile Buffer Write   | 24 bits | Escritura del Tile Buffer       |
-| Control             |  9 bits | Señales de escritura            |
+| Tile Buffer ID      | 16 bits | Selecciona un tile              |
 | Tile Buffer Address |  8 bits | Dirección interna               |
 | Tile ROM Address    | 16 bits | Dirección de la ROM de recursos |
 | LUT Address         |  4 bits | Índice de color                 |

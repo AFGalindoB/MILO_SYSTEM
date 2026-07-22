@@ -5,75 +5,62 @@ void parsear_alu(InstruccionParseada* instr) {
     
     uint8_t update_flags = 0;
 
-    if (match(TOKEN_MODIFICADOR)) {
-        if (strcmp(token_actual.lexema, ".F") == 0) {
+    if (match_tipo(1, TOKEN_MODIFICADOR)) {
+        if (match_lexema(1, ".F")) {
             update_flags = 1;
-            avanzar_token(); // Consumir el modificador ".F"
         } else {
-            consumir_lexema(TOKEN_MODIFICADOR, ".F", "El único modificador permitido para operaciones de la ALU es '.F'");
+            reportar_error(1, TOKEN_MODIFICADOR, "Modificador desconocido. Solo se permite '.F' para actualizar flags.");
+            return;
         }
+    } else {
+        update_flags = 0; // No se actualizan flags por defecto
     }
 
     int es_unaria = (instr->tipo == INSTR_NOT);
+
+    uint8_t n = obtener_destinos_ortogonales(instr);
+
+    if (n == 0) {
+        return; // Error ya reportado dentro de obtener_destinos_ortogonales
+    }
 
     if (es_unaria) {
         // ==========================================
         // FLUJO UNARIO (Ej: NOT Rd, Ra)
         // ==========================================
         
-        instr->operandos.alu_unaria.update_flags = update_flags;
-
-        // 1. Registro Destino (Rd)
-        if (match(TOKEN_REGISTRO)) {
-            instr->operandos.alu_unaria.rd = token_actual.valor;
-            avanzar_token();
-        } else { 
-            consumir(TOKEN_REGISTRO, "Se esperaba el registro destino (Rd) para la operación unaria"); 
-        }
+        instr->fuentes.alu_unaria.update_flags = update_flags;
         
-        // 2. Coma obligatoria
-        consumir(TOKEN_COMA, "Se esperaba una coma ',' después del registro destino");
-        
-        // 3. Registro Fuente Único (Ra)
-        if (match(TOKEN_REGISTRO)) {
-            instr->operandos.alu_unaria.ra = token_actual.valor;
-            avanzar_token();
-        } else { 
-            consumir(TOKEN_REGISTRO, "Se esperaba el registro fuente (Ra) para la operación unaria"); 
+        // 1. Registro Fuente Único (Ra)
+        if (!match_tipo(n, TOKEN_REGISTRO)) {
+            reportar_error(n, TOKEN_REGISTRO, "Se esperaba un registro fuente (Ra) para la operación unaria.");
+            return;
         }
+        instr->fuentes.alu_unaria.ra = linea_tokens[n].valor;
 
     } else {
         // ==========================================
         // FLUJO BINARIO (Ej: ADD Rd, Ra Rb)
         // ==========================================
         
-        instr->operandos.alu.update_flags = update_flags;
+        instr->fuentes.alu.update_flags = update_flags;
+        
+        // 1. Primer Registro Fuente (Ra)
+        if (!match_tipo(n, TOKEN_REGISTRO)) {
+            reportar_error(n, TOKEN_REGISTRO, "Se esperaba el primer registro fuente (Ra) para la operación binaria.");
+            return;
+        }
+        instr->fuentes.alu.ra = linea_tokens[n].valor;
+        
+        if (!match_tipo(n + 1, TOKEN_COMA)) {
+            reportar_error(n + 1, TOKEN_COMA, "Se esperaba una coma ',' después del primer registro fuente (Ra).");
+            return;
+        }
 
-        // 1. Registro Destino (Rd)
-        if (match(TOKEN_REGISTRO)) {
-            instr->operandos.alu.rd = token_actual.valor;
-            avanzar_token();
-        } else { 
-            consumir(TOKEN_REGISTRO, "Se esperaba el registro destino (Rd)"); 
+        if (!match_tipo(n + 2, TOKEN_REGISTRO)) {
+            reportar_error(n + 2, TOKEN_REGISTRO, "Se esperaba el segundo registro fuente (Rb) para la operación binaria.");
+            return;
         }
-        
-        // 2. Coma obligatoria
-        consumir(TOKEN_COMA, "Se esperaba una coma ',' después del registro destino");
-        
-        // 3. Primer Registro Fuente (Ra)
-        if (match(TOKEN_REGISTRO)) {
-            instr->operandos.alu.ra = token_actual.valor;
-            avanzar_token();
-        } else { 
-            consumir(TOKEN_REGISTRO, "Se esperaba el primer registro fuente (Ra)"); 
-        }
-        
-        // 4. Segundo Registro Fuente (Rb) - Directo sin coma intermedia
-        if (match(TOKEN_REGISTRO)) {
-            instr->operandos.alu.rb = token_actual.valor;
-            avanzar_token();
-        } else { 
-            consumir(TOKEN_REGISTRO, "Se esperaba el segundo registro fuente (Rb) separado por espacio"); 
-        }
+        instr->fuentes.alu.rb = linea_tokens[n + 2].valor;
     }
 }
