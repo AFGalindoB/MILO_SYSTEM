@@ -1,21 +1,28 @@
 # Parser Details - Milo ASM
 
-## Representacion Final
+## Representación Final
 
-La representación intermedia utilizada durante esta etapa se encuentra definida por la estructura InstruccionParseada.
+La representación intermedia utilizada durante esta etapa se encuentra definida por la estructura `InstruccionParseada`.
+
+A diferencia de versiones anteriores, esta estructura ya no se organiza únicamente alrededor del tipo de instrucción, sino que separa explícitamente destinos, fuentes y unidades funcionales, permitiendo que una misma operación pueda escribir simultáneamente sobre registros generales y registros especiales del hardware.
 
 ```c
 typedef struct {
     TipoInstruccion tipo;
     uint32_t linea;
 
+    uint8_t reg_gpu;
+
+    int tiene_rd;
+    uint8_t rd;
+
     union {
         ...
-    } operandos;
+    } fuentes;
 } InstruccionParseada;
 ```
 
-Cada instrucción válida del lenguaje produce exactamente una instancia de esta estructura, la cual contiene toda la información necesaria para la generación posterior de la palabra de control.
+Esta representación constituye una capa de abstracción entre el ISA y el encoder, permitiendo describir qué recursos del procesador participan en una instrucción sin depender todavía de la codificación física de la palabra de control.
 
 ## Filosofía de diseño
 
@@ -24,21 +31,24 @@ El parser fue diseñado siguiendo una arquitectura basada en especialización po
 La función principal identifica el mnemónico correspondiente y delega el análisis sintáctico al módulo especializado encargado de esa categoría de instrucciones.
 
 ```text
-parsear_linea()
-        │
-        ├──────────────┬───────────────┐
-        │              │               │
-        ▼              ▼               ▼
-parsear_movimiento() parsear_alu() parsear_pc()
+parsear_linea_tokens()
+            │
+ ┌──────────┼──────────┐
+ │          │          │
+ ▼          ▼          ▼
+Movimiento  ALU   Control de Flujo
 ```
 
-Actualmente las familias implementadas son:
+Actualmente existen tres familias principales:
 
-- **Movimiento de datos:** `MOV`, `MOVI`, `LOAD`, `STORE`.
-- **Operaciones ALU:** `ADD`, `ADC`, `SUB`, `SBC`, `AND`, `OR`, `XOR`, `NOT`, `SHL`, `SHR`.
-- **Control de flujo:** `CMP`, `JMP`, `CALL`, `RET`, `JZ`, `JNZ`, `JC`, `JNC`, `JN`, `JNN`, `JV` y `JNV`.
+- Movimiento de datos
+- Operaciones ALU
+- Control de flujo
+- Sincronización con GPU
 
-Esta organización evita concentrar toda la gramática del lenguaje en una única función de gran tamaño y permite extender el ISA incorporando nuevos módulos especializados sin modificar el resto del compilador.
+Cada módulo conoce exclusivamente la gramática de su propia familia y Cada familia utiliza exclusivamente la información necesaria para su unidad funcional.
+
+Esto mantiene desacopladas las distintas categorías del ISA y facilita la incorporación de nuevas instrucciones sin modificar el resto del parser.
 
 ### Reconocimiento de instrucciones
 
@@ -51,36 +61,30 @@ Leer mnemónico
 Seleccionar familia
         │
         ▼
-Parser especializado
+Resolver destinos ortogonales
         │
         ▼
-Validar sintaxis
+Analizar operandos fuente
         │
         ▼
 Construir InstruccionParseada
-        │
-        ▼
-Registrar errores (si existen)
 ```
 
-Este flujo hace que el parser pueda incorporar nuevas familias de instrucciones con un impacto mínimo sobre el código existente.
+Esta separación permite reutilizar el mismo mecanismo de destinos para todas las familias del ISA.
 
 ### Recuperación ante errores
 
 El parser implementa un mecanismo de recuperación conocido como panic mode.
 
-Cuando se detecta un error sintáctico, el análisis de la instrucción actual se interrumpe y el parser descarta todos los tokens restantes de esa línea hasta encontrar un salto de línea o el final del archivo.
+Cuando una instrucción contiene un error sintáctico, únicamente dicha línea es descartada.
 
 ```text
-Instrucción inválida
-        │
-        ▼
-Registrar error
-        │
-        ▼
-Descartar tokens
-        │
-        ▼
+Error
+   │
+   ▼
+Registrar diagnóstico
+   │
+   ▼
 Continuar con la siguiente línea
 ```
 
@@ -92,11 +96,11 @@ Cada error registrado almacena:
 
 - Línea.
 - Columna.
-- Lexema encontrado.
-- Tipo del token.
-- Descripción del error.
+- Línea reconstruida.
+- Tipo de token esperado.
+- Mensaje descriptivo.
 
-Utilizando esta información, el informe final reproduce la línea del código fuente donde ocurrió el problema e indica visualmente la posición aproximada mediante un marcador (`^`).
+Posteriormente el compilador genera un informe indicando visualmente la posición del error.
 
 Por ejemplo:
 
@@ -110,16 +114,38 @@ Se esperaba una coma.
                 ^
 ```
 
-Este formato facilita localizar rápidamente el origen del error sin necesidad de inspeccionar manualmente todo el archivo fuente.
+Este mecanismo evita errores en cascada y permite detectar múltiples problemas durante una misma compilación.
+
+### Destinos ortogonales
+
+Una de las principales características del parser actual es el soporte para destinos ortogonales.
+
+Antes de interpretar los operandos propios de cada instrucción, el parser identifica automáticamente el destino físico sobre el cual deberá escribirse el resultado.
+
+Actualmente existen dos tipos de destino.
+
+- **Registros generales:** El resultado será almacenado en el banco de registros.
+- **Registros especiales:** En estos casos el resultado no se escribe en un registro general sino directamente sobre un periférico del sistema.
+
+Actualmente se encuentran implementados:
+
+- TBUF
+- SCROLL
+
+El parser detecta automáticamente estos registros especiales y almacena dicha información mediante el campo: `reg_gpu`
+
+Esta organización permite que una instrucción pueda escribir directamente sobre hardware sin introducir instrucciones especiales dentro del ISA.
+
 
 ### Extensibilidad
 
-En la mayoría de los casos, incorporar una nueva familia de instrucciones requiere únicamente:
+La incorporación de nuevas instrucciones continúa siendo un proceso localizado.
 
-1. Añadir el nuevo tipo a `TipoInstruccion`.
-2. Incorporar la estructura correspondiente dentro de `InstruccionParseada`, cuando sea necesario.
-3. Implementar un parser especializado para esa familia.
-4. Registrar el nuevo mnemónico en `parsear_linea()`.
-5. Implementar la traducción correspondiente en el encoder.
+Generalmente basta con:
 
-Gracias a esta organización, el parser permanece desacoplado del hardware y únicamente describe la estructura sintáctica del ISA.
+1. Añadir el nuevo valor en TipoInstruccion.
+2. Incorporar su reconocimiento en parsear_linea_tokens().
+3. Implementar la gramática correspondiente dentro de una familia existente o crear una nueva
+4. Añadir la traducción correspondiente en el encoder.
+
+La incorporación de nuevos registros especiales únicamente requiere ampliar el mecanismo de resolución de destinos ortogonales, sin modificar el resto del parser.

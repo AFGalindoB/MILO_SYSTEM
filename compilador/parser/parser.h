@@ -35,6 +35,7 @@ typedef enum {
     INSTR_JNN,
     INSTR_JV,
     INSTR_JNV,
+    INSTR_WAIT,
 
     INSTR_DESCONOCIDA
 } TipoInstruccion;

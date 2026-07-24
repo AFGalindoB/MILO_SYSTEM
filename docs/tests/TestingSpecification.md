@@ -1,6 +1,6 @@
 # Testing Specification
 
-Versión Alpha 0.1
+Versión 1.0.0
 
 ## Introducción
 
@@ -101,6 +101,7 @@ make test_movimiento_general
 make test_alu
 make test_flags
 make test_pc
+make test_gpu
 ```
 
 ### Limpiar los ejecutables generados
@@ -158,6 +159,7 @@ La documentación detallada de cada conjunto de pruebas se mantiene en documento
   - [Pruebas de compilación para transferencias entre registros y memoria.](./Test_Movimiento_General.md)
   - [Pruebas de compilación relacionadas con la actualización de banderas.](./Test_Flags.md)
   - [Pruebas de compilación relacionadas con control de flujo.](./Test_PC.md)
+  - [Pruebas de compilación relacionadas con el renderizado de la gpu.](./Test_GPU.md)
 
 Cada documento describe los objetivos de la prueba, los casos cubiertos y los criterios utilizados para validar su funcionamiento.
 

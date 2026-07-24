@@ -1,6 +1,8 @@
-# Milo Alpha
+# Milo
 
-Ecosistema experimental para el diseño de una arquitectura de procesador de 32 bits, su ISA, compilador y herramientas de desarrollo.
+Ecosistema para el diseño de una arquitectura de procesador propia, su ISA, compilador, GPU y herramientas de desarrollo.
+
+Milo busca construir una plataforma completa donde hardware y software evolucionen conjuntamente. El proyecto incluye el diseño del procesador, una arquitectura gráfica 2D, un lenguaje ensamblador propio (MILO ASM), un compilador y la documentación necesaria para comprender y extender todo el ecosistema.
 
 Licencia: MIT
 
@@ -12,52 +14,94 @@ A diferencia de muchas arquitecturas tradicionales, el desarrollo del proyecto c
 
 Actualmente el hardware se implementa utilizando **Logisim Evolution**, mmientras que el compilador está desarrollado en **C**, siguiendo una arquitectura modular compuesta por lexer, parser, encoder y herramientas auxiliares.
 
-## Características
+## Arquitectura
 
-- Arquitectura de 32 bits.
+Actualmente la arquitectura estable de Milo utiliza:
+
+- CPU de 24 bits.
+- Program Counter de 24 bits.
 - 16 registros de propósito general.
 - Tres buses internos.
 - Unidad de control cableada (Hardwired Control Unit).
+- GPU 2D integrada mediante registros especiales.
 - ISA propia (MILO ASM).
-- Compilador modular desarrollado en C.
-- Program Counter y soporte para flujo de control.
-- Registro de banderas (N, Z, C y V).
-- Implementación completa en Logisim Evolution.
-- Documentación técnica del hardware y del compilador.
-- Sistema de pruebas para el compilador y la CPU.
 
-## Estado actual
+> **Nota:** Las primeras versiones del proyecto fueron diseñadas sobre una arquitectura de 32 bits. A partir de la versión `1.0.0`, el desarrollo continúa sobre una arquitectura de 24 bits con el objetivo de optimizar el uso de recursos de FPGA y simplificar el datapath sin modificar la filosofía del ISA.
 
-### Hardware
+## Características
 
-- ✅ Banco de registros.
-- ✅ ALU.
-- ✅ Registro de banderas (Status Register).
-- ✅ Program Counter.
-- ✅ Stack Pointer.
-- ✅ Instrucciones MOV.
-- ✅ Instrucciones LOAD / STORE.
-- ✅ Valores inmediatos.
-- ✅ Comparación (CMP).
-- ✅ Saltos incondicionales (JMP).
-- ✅ Llamadas a subrutinas (CALL).
-- ✅ Retorno de subrutinas (RET).
-- ✅ Saltos condicionales mediante banderas (JZ, JNZ, JC, JNC, JN, JNN, JV, JNV).
-- 🚧 Etiquetas del ensamblador.
-- 🚧 GPU.
-- 🚧 DMA.
+- Arquitectura CPU de 24 bits.
+- Program Counter de 24 bits.
+- 16 registros de propósito general.
+- ISA propia (MILO ASM).
+- Unidad de control cableada.
+- Compilador modular en C.
+- GPU 2D integrada.
+- Tile Buffer.
+- Scroll por hardware.
+- Sincronización CPU-GPU mediante WAITV y WAITH.
+- Milo Studio para edición de recursos gráficos.
+- Documentación técnica completa.
 
-### Software
+## Componentes
 
-- ✅ Lexer.
-- ✅ Parser con recuperación ante errores (panic mode).
-- ✅ Reportes de error con línea y columna.
-- ✅ Encoder.
-- ✅ Expansión de instrucciones del ISA hacia múltiples palabras de control.
-- ✅ Exportación de programas hacia ROM.
-- ✅ Sistema de pruebas.
-- 🚧 Resolución automática de etiquetas.
-- 🚧 Expansión del ISA.
+Actualmente el ecosistema Milo está compuesto por:
+
+### CPU
+
+Arquitectura propia basada en una CPU de 24 bits con ISA personalizada, unidad de control cableada y soporte para ejecución de programas escritos en MILO ASM.
+
+✅ Banco de registros.
+✅ ALU.
+✅ Unidad de control.
+✅ Program Counter.
+✅ Stack Pointer.
+✅ Instrucciones aritméticas.
+✅ Instrucciones de memoria.
+✅ Saltos.
+✅ CALL / RET.
+✅ Registros especiales.
+✅ Sincronización WAITV.
+🚧 Interrupciones.
+
+### GPU
+
+Procesador gráfico 2D orientado a sistemas embebidos con soporte para Tile Buffer, scroll por hardware y futura incorporación de sprites (OAM).
+
+✅ Tile Buffer.
+✅ Scroll por hardware.
+✅ Escritura desde MOV, MOVI, LOAD y ALU.
+🚧 OAM.
+🚧 Sprites.
+
+### Toolchain
+
+Cadena completa de compilación escrita en C:
+
+✅ Lexer.
+✅ Parser.
+✅ Encoder.
+✅ Exportación a codigo en hexadecimal.
+✅ Recuperación de errores.
+✅ Documentación del ISA.
+✅ Sistema de pruebas
+🚧 Resolución automática de etiquetas.
+🚧 Librerías estándar.
+
+### Milo Studio
+
+SDK gráfico para el desarrollo de recursos visuales del sistema.
+
+Actualmente incluye:
+
+✅ Editor de tiles 8×8
+✅ Editor de paletas LUT
+✅ Gestión de múltiples tiles
+✅ Exportación de tilesets
+✅ Importación de tiles indexados
+✅ Carga de paletas RGB565
+🚧 Editor de sprites
+🚧 Editor de mapas
 
 ## Documentación
 
@@ -90,8 +134,16 @@ Una misma instrucción del ISA puede traducirse en una o varias palabras de cont
 
 ## Estado del proyecto
 
-Actualmente Milo Alpha se encuentra en una etapa **Alpha**, centrada en el desarrollo y validación de la arquitectura base del procesador y de su ecosistema de herramientas.
+Milo ha alcanzado su primera versión estable de arquitectura (`v1.0.0`).
 
-Las próximas etapas del proyecto incluyen la incorporación de etiquetas en el ensamblador, nuevas instrucciones del ISA, GPU, DMA, sistema operativo, compiladores de alto nivel y otros componentes necesarios para evolucionar hacia un ecosistema de propósito general.
+La CPU, la GPU básica, el compilador y el flujo completo de compilación se encuentran completamente funcionales.
 
-Milo Alpha no busca únicamente implementar un procesador; busca desarrollar un ecosistema completo donde hardware, ISA, compilador y herramientas evolucionen de forma coordinada.
+El desarrollo futuro se centrará en:
+
+- Migración del hardware desde Logisim Evolution hacia VHDL.
+- Sistema de sprites (OAM).
+- Controlador de audio.
+- DMA.
+- Sistema operativo.
+- SDK gráfico.
+- Compiladores de alto nivel.

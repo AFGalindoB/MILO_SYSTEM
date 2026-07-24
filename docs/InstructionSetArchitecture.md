@@ -1,5 +1,6 @@
-# Milo Alpha ISA
-Versión Alpha 0.1
+# Milo ISA
+
+Versión: 1.0.0
 
 ## Introducción
 
@@ -31,8 +32,6 @@ Además del banco de registros, la arquitectura define un conjunto de registros 
 | Registro | Descripción                                                         |
 | -------- | ------------------------------------------------------------------- |
 | `TBUF`   | Escribe un tile en el Tile Buffer.                                  |
-| `PIXOFF` | Actualiza el registro Pixel Offset.                                 |
-| `TLOFF`  | Actualiza el registro Tile Offset.                                  |
 | `SCROLL` | Actualiza simultáneamente los registros Pixel Offset y Tile Offset. |
 
 A diferencia de los registros de propósito general, estos registros únicamente pueden utilizarse como destinos de escritura.
@@ -71,8 +70,6 @@ Cada instrucción admite como máximo:
 
 Los registros especiales disponibles son:
 
-- `PIXOFF`
-- `TLOFF`
 - `SCROLL`
 - `TBUF`
 
@@ -111,14 +108,14 @@ Donde:
 
 - `Rd` representa un registro de propósito general.
 - `Rs` representa un registro fuente.
-- `GPU` representa cualquiera de los registros especiales (`PIXOFF`, `TLOFF`, `SCROLL` o `TBUF`).
+- `GPU` representa cualquiera de los registros especiales (`SCROLL` o `TBUF`).
 
 **Ejemplos:**
 
 ```asm
 MOV R1, R0
-MOV PIXOFF, R0
-MOV PIXOFF, R1, R0
+MOV TBUF, R0
+MOV TBUF, R1, R0
 ```
 
 ```asm
@@ -155,7 +152,7 @@ Donde:
 
 - `Rd` representa un registro de propósito general.
 - `Rs` contiene la dirección de memoria a leer.
-- `GPU` representa cualquiera de los registros especiales (`PIXOFF`, `TLOFF`, `SCROLL` o `TBUF`).
+- `GPU` representa cualquiera de los registros especiales (`SCROLL` o `TBUF`).
 
 Los corchetes (`[]`) indican que el contenido del registro debe interpretarse como una dirección de memoria y no como un dato.
 
@@ -163,8 +160,8 @@ Los corchetes (`[]`) indican que el contenido del registro debe interpretarse co
 
 ```asm
 LOAD R0, [R5]
-LOAD PIXOFF, [R5]
-LOAD PIXOFF, R0, [R5]
+LOAD TBUF, [R5]
+LOAD TBUF, R0, [R5]
 ```
 
 Durante la ejecución:

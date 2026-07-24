@@ -221,6 +221,11 @@ int codificar_instruccion(InstruccionParseada* instr, PalabraROM* salida) {
             return 1;
         }
 
+        case INSTR_WAIT: {
+            uint32_t fine_control = (1 << 0) | (instr->fuentes.salto.destino << 1);
+            salida[0] = empaquetar_campos(0x04, 0, 0, 0, 0, fine_control, 0);
+            return 1;
+        }
 
         default:
             // NOP por defecto

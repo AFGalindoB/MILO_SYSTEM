@@ -1,7 +1,5 @@
 # Compiler_Details
 
-Versión Alpha 0.1
-
 ## Introducción
 
 El compilador de Milo Alpha constituye el puente entre el ISA de la arquitectura y la representación física utilizada por el procesador.

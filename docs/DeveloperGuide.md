@@ -1,6 +1,6 @@
 # Developer Guide - MILO SYSTEM
 
-Versión Alpha 0.1
+Versión: 1.0.0
 
 ## Introducción
 

@@ -9,26 +9,22 @@ int main() {
         "MOVI TBUF, #3841   ; O (Index: 15) -> Dir 1  (0x0F01)\n"
         "MOVI TBUF, #3074   ; L (Index: 12) -> Dir 2  (0x0C02)\n"
         "MOVI TBUF, #259    ; A (Index: 1)  -> Dir 3  (0x0103)\n"
-        "MOVI TBUF, #4      ;   (Index: 0)  -> Dir 4  (0x0004)\n"
+        "MOVI TBUF, #4        ;   (Index: 0)  -> Dir 4  (0x0004)\n"
         "MOVI TBUF, #3333   ; M (Index: 13) -> Dir 5  (0x0D05)\n"
         "MOVI TBUF, #5382   ; U (Index: 21) -> Dir 6  (0x1506)\n"
         "MOVI TBUF, #3591   ; N (Index: 14) -> Dir 7  (0x0E07)\n"
         "MOVI TBUF, #1032   ; D (Index: 4)  -> Dir 8  (0x0408)\n"
-        "MOVI TBUF, #3849   ; O (Index: 15) -> Dir 9  (0x0F09)\n";
-        
-        /*
-        Agregar cuando halla vblank
+        "MOVI TBUF, #3849   ; O (Index: 15) -> Dir 9  (0x0F09)\n"
         "; ---- 2. Configuración e Inicio de Scroll (ROM 10 a 11) ----\n"
         "MOVI R0, #1         ; Dir 10: R0 = 1\n"
         "MOVI R2, #127     ; Dir 11: R2 = 127\n"
         "MOVI R1, #0         ; Dir 12: R0 = 0\n"
-        "\n"
         "; ---- 3. Bucle de Animación de Scroll (ROM 12+) ----\n"
-        "ADD SCROLL, R1, R1, R0  ; Dir 13 (BUCLE): R1 = R1 + R0 y actualiza SCROLL GPU\n"
-        "CMP R1, R2              ; Dir 14 (BUCLE): R1 = R1 + R0 y actualiza SCROLL GPU\n"
-        "JZ #12                  ; Dir 15: Salta de regreso a la instrucción ADD en dir 12\n"
-        "JMP #13                  ; Dir 16: Salta de regreso a la instrucción ADD en dir 12\n"
-         */
+        "WAITV                   ; Dir 13 (BUCLE): Esperar señal de vblank\n"
+        "ADD SCROLL, R1, R1, R0  ; Dir 14 (BUCLE): R1 = R1 + R0 y actualiza SCROLL GPU\n"
+        "CMP R1, R2              ; Dir 15 (BUCLE): Revisar si se llego a 127 (Recorrio todo x)\n"
+        "JZ #12                  ; Dir 16: Salta de regreso al reinicio del contador\n"
+        "JMP #13                 ; Dir 17: Salta de regreso a la instrucción WAITV en dir 13\n";
 
 
     printf("====================================================================\n");

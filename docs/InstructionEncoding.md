@@ -1,6 +1,6 @@
 # Instruction Encoding Specification - Milo Alpha
 
-Versión Alpha 0.1
+Versión: 1.0.0
 
 ## Introducción
 
@@ -15,6 +15,8 @@ La semántica de cada instrucción y el comportamiento del conjunto de instrucci
 | Opcode | RegDest | RegSrc2 | RegSrc1 | Bus C Source Selector | Fine-Control | Inmediate | 
 | ------ | --------| ------- | ------- | --------------------- | ------------ | --------- |
 | 6 bits | 4 bits  | 4 bits  | 4 bits  | 5 bits                | 9 bits       | 32 bits   |
+
+> Nota: Dependiendo de la version el inmediato puede ser de 24 bits usando los bits del 0-24
 
 ## Palabra de ROM
 
@@ -33,12 +35,13 @@ El campo OPCODE identifica la operación principal que será ejecutada por el pr
 
 La unidad de control utiliza este campo para habilitar el bloque funcional correspondiente y determinar la interpretación del campo Fine Control.
 
-|        |     |
-| ------ | --- |
-| 000000 | NOP |
-| 000001 | ALU |
-| 000010 | MOV |
-| 000011 | PC  |
+|        |      |
+| ------ | ---- |
+| 000000 | NOP  |
+| 000001 | ALU  |
+| 000010 | MOV  |
+| 000011 | PC   |
+| 000100 | STOP |
 
 ## Campo Register Control
 
@@ -128,8 +131,17 @@ Fine Control ignorado.
 | `4`   | `ENABLE_SP`            | Habilitador | Cuando esta a 1 permite subir o bajar stack pointer                  |
 | `3`   | `UPDOWN_STACK_POINTER` | Control     | 1: Sube stack pointer, 0: Baja Stack pointer.                        |
 | `2`   | `WE_STACK`             | Habilitador | Permite cargar un valor en el STACK.                                 |
-| `1`   | `SEL_MUX`              | Control     | 0: ROM; 1 STACK                                                      |
+| `1`   | `SEL_PC`               | Control     | 0: ROM; 1 STACK                                                      |
 | `0`   | `PC_JUMP`              | Habilitador | Habilita la carga del program counter.                               |
+
+---
+
+### STOP
+
+| Bits  | Nombre de la Señal | Tipo        | Descripción Física                                                   |
+| ----- | ------------------ | ----------- | -------------------------------------------------------------------- |
+| `1`   | `SEL_WAIT`         | Control     | 0: HBlank; 1 VBlank                                                  |
+| `0`   | `ENABLE_WAIT`      | Habilitador | Habilita la espera del program counter.                              |
 
 #### Acceso a memoria
 

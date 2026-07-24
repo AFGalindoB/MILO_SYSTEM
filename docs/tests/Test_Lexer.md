@@ -1,6 +1,6 @@
 # Test del Lexer
 
-Versión Alpha 0.1
+Versión 1.0.0
 
 ## Objetivo
 

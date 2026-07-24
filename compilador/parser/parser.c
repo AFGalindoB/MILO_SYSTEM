@@ -221,18 +221,22 @@ InstruccionParseada parsear_linea_tokens(Token* tokens, int cantidad_tokens) {
         else if (strcmp(mnemonico, "SHR") == 0) { instr.tipo = INSTR_SHR; parsear_alu(&instr); }
 
         // --- Bloque de Control de Flujo (CMP, Saltos, Subrutinas) ---
-        else if (strcmp(mnemonico, "CMP") == 0)  { instr.tipo = INSTR_CMP;  parsear_pc(&instr); }
-        else if (strcmp(mnemonico, "JMP") == 0)  { instr.tipo = INSTR_JMP;  parsear_pc(&instr); }
-        else if (strcmp(mnemonico, "JZ") == 0)   { instr.tipo = INSTR_JZ;   parsear_pc(&instr); }
-        else if (strcmp(mnemonico, "JNZ") == 0)  { instr.tipo = INSTR_JNZ;  parsear_pc(&instr); }
-        else if (strcmp(mnemonico, "JC") == 0)   { instr.tipo = INSTR_JC;   parsear_pc(&instr); }
-        else if (strcmp(mnemonico, "JNC") == 0)  { instr.tipo = INSTR_JNC;  parsear_pc(&instr); }
-        else if (strcmp(mnemonico, "JN") == 0)   { instr.tipo = INSTR_JN;   parsear_pc(&instr); }
-        else if (strcmp(mnemonico, "JNN") == 0)  { instr.tipo = INSTR_JNN;  parsear_pc(&instr); }
-        else if (strcmp(mnemonico, "JV") == 0)   { instr.tipo = INSTR_JV;   parsear_pc(&instr); }
-        else if (strcmp(mnemonico, "JNV") == 0)  { instr.tipo = INSTR_JNV;  parsear_pc(&instr); }
-        else if (strcmp(mnemonico, "CALL") == 0) { instr.tipo = INSTR_CALL; parsear_pc(&instr); }
-        else if (strcmp(mnemonico, "RET") == 0)  { instr.tipo = INSTR_RET; } 
+        else if (strcmp(mnemonico, "CMP") == 0)   { instr.tipo = INSTR_CMP;  parsear_pc(&instr); }
+        else if (strcmp(mnemonico, "JMP") == 0)   { instr.tipo = INSTR_JMP;  parsear_pc(&instr); }
+        else if (strcmp(mnemonico, "JZ") == 0)    { instr.tipo = INSTR_JZ;   parsear_pc(&instr); }
+        else if (strcmp(mnemonico, "JNZ") == 0)   { instr.tipo = INSTR_JNZ;  parsear_pc(&instr); }
+        else if (strcmp(mnemonico, "JC") == 0)    { instr.tipo = INSTR_JC;   parsear_pc(&instr); }
+        else if (strcmp(mnemonico, "JNC") == 0)   { instr.tipo = INSTR_JNC;  parsear_pc(&instr); }
+        else if (strcmp(mnemonico, "JN") == 0)    { instr.tipo = INSTR_JN;   parsear_pc(&instr); }
+        else if (strcmp(mnemonico, "JNN") == 0)   { instr.tipo = INSTR_JNN;  parsear_pc(&instr); }
+        else if (strcmp(mnemonico, "JV") == 0)    { instr.tipo = INSTR_JV;   parsear_pc(&instr); }
+        else if (strcmp(mnemonico, "JNV") == 0)   { instr.tipo = INSTR_JNV;  parsear_pc(&instr); }
+        else if (strcmp(mnemonico, "CALL") == 0)  { instr.tipo = INSTR_CALL; parsear_pc(&instr); }
+        else if (strcmp(mnemonico, "RET") == 0)   { instr.tipo = INSTR_RET; } 
+
+        // --- Bloque de control de interrupciones ---
+        else if (strcmp(mnemonico, "WAITH") == 0) { instr.tipo = INSTR_WAIT; instr.fuentes.salto.destino = 0; } 
+        else if (strcmp(mnemonico, "WAITV") == 0) { instr.tipo = INSTR_WAIT; instr.fuentes.salto.destino = 1; } 
 
         else { instr.tipo = INSTR_DESCONOCIDA; }
 
