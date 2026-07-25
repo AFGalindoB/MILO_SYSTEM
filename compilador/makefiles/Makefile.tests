@@ -8,9 +8,6 @@ SRC_LEXER = $(SRC_DIR)/lexer/lexer.c
 # El Parser necesita el lexer y todos los módulos sintácticos
 SRC_PARSER = $(SRC_DIR)/lexer/lexer.c \
              $(SRC_DIR)/parser/parser.c \
-             $(SRC_DIR)/parser/parser_alu.c \
-             $(SRC_DIR)/parser/parser_transferencia.c \
-             $(SRC_DIR)/parser/parser_pc.c
 
 all: test_lexer test_parser
 

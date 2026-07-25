@@ -35,7 +35,7 @@ int compilar_y_exportar(const char* nombre_archivo, const char* codigo_fuente) {
         }
 
         // Enviamos los tokens de la línea actual al parser
-        InstruccionParseada instr = parsear_linea_tokens(tokens_linea, cantidad_tokens);
+        InstruccionIR instr = parsear_linea_tokens(tokens_linea, cantidad_tokens);
 
         // Ignoramos instrucciones inválidas, comentarios o líneas vacías
         if (instr.tipo == INSTR_DESCONOCIDA) {

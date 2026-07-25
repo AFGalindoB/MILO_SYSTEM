@@ -40,43 +40,45 @@ typedef enum {
     INSTR_DESCONOCIDA
 } TipoInstruccion;
 
+typedef enum {
+    FORMATO_DESCONOCIDO,
+    FORMATO_SIN_OPERANDOS,  // NOP, RET, STOP
+    FORMATO_SALTO,          // JMP, JZ, JNZ, CALL...
+    FORMATO_MOV,            // MOV
+    FORMATO_MOVI,           // MOVI
+    FORMATO_LOAD,           // LOAD
+    FORMATO_STORE,          // STORE
+    FORMATO_ALU_UNARIO,     // NOT
+    FORMATO_ALU_BINARIO     // ADD, SUB, AND, OR, XOR, ADC, SBC, SHL, SHR, CMP
+} FormatoInstruccion;
+
+typedef enum {
+    OPERANDO_NULO = 0,
+    OPERANDO_REG_RW,   // Registros R0 - R15 (valor: 0 - 15)
+    OPERANDO_REG_RO,   // RINPT (valor: ID de RINPT)
+    OPERANDO_REG_WO,   // TBUF, SCROLL (valor: ID de TBUF/SCROLL)
+    OPERANDO_INMEDIATO // Literales o Direcciones (valor: uint32_t directo)
+} TipoOperando;
+
+typedef struct {
+    TipoOperando tipo;
+    uint32_t valor;
+} Operando;
+
 typedef struct {
     TipoInstruccion tipo;
-    uint32_t linea;
-    
-    // ====================================================
-    // CAPA DE DESTINOS (Buses de Escritura / Orto-gonalidad)
-    // ====================================================
-    uint8_t reg_gpu;        // ID del registro especial (TBUF, SCROLL...)
-    
-    int tiene_rd;           // Booleano: ¿Escribe en el Banco de Registros?
-    uint8_t rd;             // ID del registro general (R0 - R15)
+    FormatoInstruccion formato;
 
-    // ====================================================
-    // CAPA DE OPERANDOS FUENTE (Unidades Funcionales)
-    // ====================================================
-    union {
-        // La ALU solo necesita saber sus fuentes y si altera banderas
-        struct { uint8_t ra; uint8_t rb; uint8_t update_flags; } alu;
-        struct { uint8_t ra; uint8_t update_flags; } alu_unaria;
-        
-        // MOV solo necesita su fuente
-        struct { uint8_t rs; } mov;
-        
-        // MOVI solo necesita su constante
-        struct { uint32_t valor; } movi;
-        
-        // LOAD solo necesita el puntero de dirección
-        struct { uint8_t mar; } load;
-        
-        // STORE es el único que no usa destinos superiores (usa fuentes fijas)
-        struct { uint8_t mdr; uint8_t mar; } store;
-        
-        // Saltos de flujo
-        struct { uint32_t destino; } salto;
-    } fuentes;
-    
-} InstruccionParseada;
+    uint32_t linea;
+
+    uint8_t tiene_modificador_f; // 1 si incluye .F, 0 en otro caso
+
+    // Destinos fijos: [0] = RW (Rd), [1] = WO (TBUF/SCROLL)
+    Operando destino[2];
+
+    // Fuentes fijas: [0] = Primera fuente, [1] = Segunda fuente
+    Operando fuente[2];
+} InstruccionIR;
 
 #define MAX_ERRORES 20
 
@@ -92,19 +94,9 @@ extern Token* linea_tokens;
 extern int total_tokens;
 extern uint32_t contador_errores;
 
-InstruccionParseada parsear_linea_tokens(Token* tokens, int cantidad_tokens);
+InstruccionIR parsear_linea_tokens(Token* tokens, int cantidad_tokens);
 
-int match_lexema(int offset, const char* lexema);
-int match_tipo(int offset, TipoToken tipo);
 void reportar_error(int offset_error, TipoToken tipo_error, const char* formato, ...);
-
-// Prototipos de submódulos de parseo
-void parsear_movimiento(InstruccionParseada* instr);
-void parsear_alu(InstruccionParseada* instr);
-void parsear_pc(InstruccionParseada* instr);
-
-uint8_t obtener_destinos_ortogonales(InstruccionParseada* instr);
-
 void emitir_informe_compilacion(void);
 
 #endif // PARSER_H

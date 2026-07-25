@@ -12,9 +12,28 @@ La representación binaria de las instrucciones y su codificación física se de
 
 ## Registros
 
-### Registros de propósito general
+La arquitectura Milo Alpha clasifica los registros visibles para el programador según el tipo de acceso permitido por el hardware.
 
-La arquitectura dispone de dieciséis registros de propósito general de 32 bits.
+Actualmente existen tres categorías:
+
+- Registros de lectura y escritura (RW).
+- Registros de solo lectura (RO).
+- Registros de solo escritura (WO).
+
+| Tipo de registro | Leer | Escribir |
+| ---------------- | ---- | -------- |
+| General (RW)     |  ✅  |    ✅    |
+| Entrada (RO)     |  ✅  |    ❌    |
+| GPU (WO)         |  ❌  |    ✅    |
+
+
+### Registros de lectura y escritura (RW)
+
+Corresponden al banco de registros de propósito general.
+
+Estos registros pueden utilizarse tanto como operandos fuente como destinos de escritura.
+
+Actualmente existen dieciséis registros:
 
 | Registro |
 | -------- |
@@ -23,18 +42,32 @@ La arquitectura dispone de dieciséis registros de propósito general de 32 bits
 | ...      |
 | R15      |
 
-Estos registros pueden utilizarse como operandos fuente y destino en las instrucciones del ISA.
+### Registros de solo lectura (RO)
 
-### Registros especiales
+Representan información generada por el hardware.
 
-Además del banco de registros, la arquitectura define un conjunto de registros especiales asociados a la GPU.
+Actualmente la arquitectura implementa:
 
-| Registro | Descripción                                                         |
-| -------- | ------------------------------------------------------------------- |
-| `TBUF`   | Escribe un tile en el Tile Buffer.                                  |
-| `SCROLL` | Actualiza simultáneamente los registros Pixel Offset y Tile Offset. |
+| Registro | Descripción                      |
+| -------- | -------------------------------- |
+| RINPT    | Registro de entrada del sistema. |
 
-A diferencia de los registros de propósito general, estos registros únicamente pueden utilizarse como destinos de escritura.
+Estos registros únicamente pueden utilizarse como operandos fuente.
+
+Intentar escribir sobre ellos constituye un error de compilación.
+
+### Representan periféricos controlados por el procesador.
+
+Actualmente existen:
+
+| Registro | Descripción                           |
+| -------- | ------------------------------------- |
+| TBUF     | Escritura del Tile Buffer de la GPU.  |
+| SCROLL   | Registro de desplazamiento de la GPU. |
+
+Estos registros únicamente pueden utilizarse como destinos.
+
+No es posible leer su contenido desde el software.
 
 ## Notación
 
@@ -51,35 +84,48 @@ En este documento se utiliza la siguiente convención.
 
 ## Transferencia de datos
 
-Las instrucciones de transferencia permiten mover información entre registros de propósito general, memoria y registros especiales de la GPU.
+Las instrucciones de transferencia permiten mover información entre registros de propósito general, memoria y registros especiales de la arquitectura.
 
 ### Destinos de escritura
 
 El resultado de una instrucción de transferencia puede escribirse en:
 
-- Un registro de propósito general.
-- Un registro especial de la GPU.
+- Un registro de propósito general (RW).
+- Un registro especial de solo escritura (WO).
 - Ambos simultáneamente.
 
-Cuando una instrucción especifica ambos destinos, el mismo dato es escrito sobre el banco de registros y sobre la GPU durante el mismo ciclo de ejecución.
+Cuando una instrucción especifica ambos destinos, el mismo dato es escrito sobre el banco de registros y sobre el periférico correspondiente durante el mismo ciclo de ejecución.
 
 Cada instrucción admite como máximo:
 
 - Un registro de propósito general como destino.
-- Un registro especial como destino.
+- Un registro especial de solo escritura como destino.
 
-Los registros especiales disponibles son:
+Actualmente los registros especiales de solo escritura disponibles son:
 
-- `SCROLL`
 - `TBUF`
+- `SCROLL`
 
-En la sintaxis del ensamblador, cuando se utilizan ambos destinos, el registro especial siempre aparece antes del registro de propósito general.
+Los registros de solo lectura, como `RINPT`, únicamente pueden utilizarse como operandos fuente y nunca como destino de escritura.
+
+En la sintaxis del ensamblador, cuando una instrucción utiliza ambos destinos, el registro especial siempre aparece antes del registro de propósito general.
+
+**Ejemplos:**
+
+```asm
+MOV R1, R0
+MOV TBUF, R0
+MOV TBUF, R1, R0
+MOV R2, RINPT
+```
+
+> Nota: Los registros especiales no forman parte del banco de registros de propósito general. Cada uno representa un periférico o recurso de hardware específico y su comportamiento (solo lectura o solo escritura) es definido por la arquitectura.
 
 ---
 
 ### MOV / MOVI
 
-Las instrucciones `MOV` y `MOVI` copian un dato hacia uno o más destinos.
+Las instrucciones `MOV` y `MOVI` permiten transferir información entre registros de propósito general, registros especiales y valores inmediatos, respetando las restricciones de acceso de cada tipo de registro.
 
 La diferencia entre ambas radica únicamente en el origen del dato.
 
@@ -106,7 +152,7 @@ MOVI GPU, Rd, #n
 
 Donde:
 
-- `Rd` representa un registro de propósito general.
+- `Rd` representa un registro de propósito general o un registro de solo lectura.
 - `Rs` representa un registro fuente.
 - `GPU` representa cualquiera de los registros especiales (`SCROLL` o `TBUF`).
 
@@ -114,6 +160,7 @@ Donde:
 
 ```asm
 MOV R1, R0
+MOV R1, RINPT
 MOV TBUF, R0
 MOV TBUF, R1, R0
 ```
@@ -126,12 +173,12 @@ MOVI SCROLL, R2, #0x53
 
 ## Acceso a memoria
 
-Las instrucciones de acceso a memoria permiten transferir datos entre la memoria RAM, el banco de registros y los registros especiales de la GPU.
+Las instrucciones de acceso a memoria permiten transferir datos entre la memoria RAM, el banco de registros y los registros de solo escritura.
 
 Al igual que las instrucciones de transferencia de datos, `LOAD` puede escribir el dato leído en:
 
 - Un registro de propósito general.
-- Un registro especial de la GPU.
+- Un Registro de solo escritura.
 - Ambos simultáneamente.
 
 Por el contrario, `STORE` siempre escribe sobre la memoria RAM.
@@ -211,10 +258,10 @@ Las instrucciones aritmético-lógicas realizan operaciones sobre uno o dos oper
 El resultado de la operación puede escribirse en:
 
 - Un registro de propósito general.
-- Un registro especial de la GPU (`SCROLL` o `TBUF`).
+- Un Registro de solo escritura.
 - Ambos simultáneamente.
 
-A diferencia de las instrucciones de transferencia de datos, las operaciones de la ALU únicamente pueden escribir sobre los registros especiales `SCROLL` y `TBUF`.
+A diferencia de las instrucciones de transferencia de datos, las operaciones de la ALU únicamente puede escribirse en registros de propósito general y registros especiales de solo escritura.
 
 Cuando una instrucción especifica ambos destinos, el resultado generado por la ALU es escrito simultáneamente sobre el banco de registros y sobre la GPU.
 

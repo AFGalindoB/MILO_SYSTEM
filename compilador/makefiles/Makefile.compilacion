@@ -5,14 +5,11 @@ CFLAGS = -Wall -Wextra -g
 SRC_DIR = .
 SRC_CORE = $(SRC_DIR)/lexer/lexer.c \
            $(SRC_DIR)/parser/parser.c \
-           $(SRC_DIR)/parser/parser_alu.c \
-           $(SRC_DIR)/parser/parser_transferencia.c \
-           $(SRC_DIR)/parser/parser_pc.c \
            $(SRC_DIR)/encoder/encoder.c \
            $(SRC_DIR)/helpers/escritor_rom.c \
            $(SRC_DIR)/helpers/compilador_helper.c
 
-all: test_movi test_movimiento_general test_alu test_flags test_pc
+all: test_movi test_movimiento_general test_alu test_flags test_pc test_gpu test_inputs
 
 test_movi: $(SRC_DIR)/tests/tests_compilacion/test_movi.c $(SRC_CORE)
 	$(CC) $(CFLAGS) $^ -o $(SRC_DIR)/test_movi_exec
@@ -32,5 +29,8 @@ test_pc: $(SRC_DIR)/tests/tests_compilacion/test_pc.c $(SRC_CORE)
 test_gpu: $(SRC_DIR)/tests/tests_compilacion/test_gpu.c $(SRC_CORE)
 	$(CC) $(CFLAGS) $^ -o $(SRC_DIR)/test_gpu_exec
 
+test_inputs: $(SRC_DIR)/tests/tests_compilacion/test_inputs.c $(SRC_CORE)
+	$(CC) $(CFLAGS) $^ -o $(SRC_DIR)/test_inputs_exec
+
 clean:
-	rm -f $(SRC_DIR)/test_movi_exec $(SRC_DIR)/test_movimiento_general_exec $(SRC_DIR)/test_alu_exec $(SRC_DIR)/test_flags_exec $(SRC_DIR)/test_pc_exec $(SRC_DIR)/test_gpu_exec
+	rm -f $(SRC_DIR)/test_movi_exec $(SRC_DIR)/test_movimiento_general_exec $(SRC_DIR)/test_alu_exec $(SRC_DIR)/test_flags_exec $(SRC_DIR)/test_pc_exec $(SRC_DIR)/test_gpu_exec $(SRC_DIR)/test_inputs_exec

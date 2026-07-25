@@ -42,6 +42,9 @@ test_pc:
 test_gpu:
 	make -f makefiles/Makefile.compilacion test_gpu
 
+test_inputs:
+	make -f makefiles/Makefile.compilacion test_inputs
+
 
 # --------------------------------------------------------------------
 # 🧹 Limpieza General

@@ -8,7 +8,9 @@ Versión: 1.0.0
 
 Milo es un procesador de propósito general de 24 bits diseñado alrededor de una arquitectura basada en registros, una unidad de control cableada y un conjunto de coprocesadores especializados.
 
-La CPU constituye el núcleo de procesamiento del ecosistema Milo y se comunica con otros subsistemas, como la GPU, mediante registros especiales mapeados por hardware.
+La CPU constituye el núcleo de procesamiento del ecosistema Milo y se comunica con otros subsistemas mediante registros especiales mapeados por hardware.
+
+Actualmente estos registros permiten controlar la GPU y consultar el estado del sistema de entrada.
 
 Su diseño prioriza una organización sencilla del datapath, una implementación completamente cableada y una clara separación entre el lenguaje ensamblador (ISA) y la representación física ejecutada por el hardware.
 
@@ -64,8 +66,9 @@ Control de flujo:
 - Saltos condicionales basados en flags
 
 Registros especiales:
-- TBUF
-- SCROLL
+- TBUF (solo escritura)
+- SCROLL (solo escritura)
+- RINPT (solo lectura)
 
 ## Organización interna
 
@@ -84,6 +87,10 @@ Cada instrucción puede seleccionar simultáneamente:
 - Un segundo registro fuente.
 
 Durante las operaciones de acceso a memoria, dos registros pueden asumir temporalmente las funciones equivalentes a MAR (Memory Address Register) y MDR (Memory Data Register). Esta funcionalidad se implementa mediante señales de control y no requiere registros especializados, reduciendo así la complejidad del hardware y aumentando la flexibilidad de la arquitectura.
+
+El banco de registros contiene únicamente registros de propósito general.
+
+Los registros especiales del sistema, como los pertenecientes a la GPU o al subsistema de entrada, no forman parte del banco de registros. Estos son implementados mediante hardware dedicado y accedidos a través del ISA utilizando identificadores especiales.
 
 ---
 
@@ -161,7 +168,20 @@ Usos:
 
 **Bus C:**
 
-El resultado de la ALU o de otras fuentes es enviado mediante este bus al banco de registros.
+El Bus C constituye el bus de escritura y distribución de datos del procesador.
+
+Sobre este bus pueden colocarse datos provenientes de distintas fuentes internas, entre ellas:
+
+- ALU.
+- RAM.
+- Banco de Registros
+- Valores inmediatos desde la ROM.
+- Registro de entrada (RINPT).
+
+Dependiendo de las señales de control generadas por la unidad de control, el dato presente sobre el Bus C puede ser escrito en:
+
+- Banco de registros.
+- Registros especiales de salida (GPU).
 
 > La utilización de tres buses permite leer simultáneamente dos operandos y escribir un resultado durante el mismo ciclo de ejecución.
 
@@ -254,23 +274,56 @@ WAITV permite detener temporalmente la ejecución de la CPU hasta que la GPU ind
 
 Esta instrucción facilita la sincronización entre CPU y GPU evitando modificaciones del estado gráfico durante el proceso de generación del cuadro.
 
+### Subsistema de entrada
+
+La CPU incorpora un registro especial denominado **RINPT**, encargado de almacenar el estado actual de los dispositivos de entrada conectados al sistema.
+
+A diferencia de los registros de propósito general, RINPT es un registro de solo lectura cuyo contenido es actualizado directamente por el hardware externo.
+
+Actualmente cada bit representa el estado de un botón del controlador.
+
+| Bit | Función  |
+| --- | -------- |
+|  0  | A        |
+|  1  | B        |
+|  2  | X        |
+|  3  | Y        |
+|  4  | UP       |
+|  5  | LEFT     |
+|  6  | RIGHT    |
+|  7  | DOWN     |
+
+Los bits restantes permanecen reservados para futuras ampliaciones del sistema de entrada.
+
 ### Registros especiales
 
 Además del banco de registros de propósito general, la CPU dispone de un conjunto de registros especiales utilizados para controlar periféricos internos del sistema.
 
-Actualmente se implementan:
+Actualmente el procesador implementa registros especiales de dos categorías:
 
-#### SCROLL
+- Registros de solo escritura, utilizados para controlar periféricos.
+- Registros de solo lectura, utilizados para consultar el estado del hardware.
 
-Registro conectado a la GPU encargado de actualizar el desplazamiento horizontal y vertical del mapa de tiles.
+#### Registros de solo escritura
 
-Puede utilizarse como destino de operaciones MOV, MOVI y de instrucciones ejecutadas por la ALU.
+- **SCROLL:**
+  Registro conectado a la GPU encargado de actualizar el desplazamiento horizontal y vertical del mapa de tiles.
+  
+  Puede utilizarse como destino de operaciones MOV, MOVI y de instrucciones ejecutadas por la ALU.
 
-#### TBUF
+- **TBUF:**
+  Registro utilizado para escribir datos directamente sobre el Tile Buffer de la GPU.
+  
+  Cada escritura contiene tanto el índice del tile como la dirección donde será almacenado.
 
-Registro utilizado para escribir datos directamente sobre el Tile Buffer de la GPU.
+#### Registros de solo lectura
 
-Cada escritura contiene tanto el índice del tile como la dirección donde será almacenado.
+- **RINPT:**
+  Registro utilizado para consultar el estado del sistema de entrada.
+  
+  Su contenido es generado directamente por el hardware y puede utilizarse como fuente en instrucciones de transferencia de datos.
+  
+  A diferencia de los registros de propósito general, RINPT no admite operaciones de escritura desde software.
 
 ## Características relevantes actuales
 
@@ -291,13 +344,14 @@ Actualmente Milo implementa:
 - Scroll por hardware.
 - WAITV.
 - Unidad de control cableada.
+- Subsistema de entrada.
+- Registro especial RINPT.
 
 Actualmente aún no incorpora:
 
-- Interrupciones.
-- DMA.
 - OAM.
 - Audio.
+- DMA.
 - Caché.
 - MMU.
 - Pipeline.

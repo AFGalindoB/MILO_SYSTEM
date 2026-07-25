@@ -6,7 +6,11 @@
 // Tus tipos de Token exactos
 typedef enum {
     TOKEN_IDENTIFICADOR,
-    TOKEN_REGISTRO,
+    
+    TOKEN_REGISTRO_RW,   // R0 - R15
+    TOKEN_REGISTRO_RO,   // RINPT
+    TOKEN_REGISTRO_WO,   // TBUF, SCROLL
+
     TOKEN_INMEDIATO,
     TOKEN_NUMERO,
     TOKEN_COMA,
@@ -18,6 +22,13 @@ typedef enum {
     TOKEN_EOF,
     TOKEN_ERROR
 } TipoToken;
+
+// Constantes/IDs para mapear registros WO en el campo 'valor' del token
+#define REG_WO_TBUF   0
+#define REG_WO_SCROLL 1
+
+// Constantes/IDs para mapear registros RO en el campo 'valor' del token
+#define REG_RO_RINPT  0
 
 #define MAX_TOKENS_POR_LINEA 16
 

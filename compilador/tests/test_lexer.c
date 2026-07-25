@@ -27,7 +27,8 @@ int main() {
         "NOT.F R8, R9           ; Linea 21: Modificador .F en operacion unaria\n"
         "JNZ.F #5               ; Linea 22: ERROR ADREDE (Modificador .F en un salto condicional)\n"
         "MOVI TBUF, R1, #100  ; Linea 23: Instruccion hacia la GPU\n"
-        "ADD.F.G R8, R1 R2      ; Error 24: Doble modificador\n";
+        "ADD.F.G SCROLL, R1 R2  ; Linea 24: Doble modificador\n"
+        "MOV R8, RINPT          ; Linea 25: Doble modificador\n";
 
     printf("====================================================================\n");
     printf("   🔥 EJECUTANDO TESTBENCH DE ANÁLISIS LÉXICO - MILO ASM 🔥        \n");

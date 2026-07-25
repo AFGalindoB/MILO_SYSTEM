@@ -38,116 +38,80 @@ static const char* obtener_nombre_instruccion(TipoInstruccion tipo) {
         case INSTR_JNN:   return "JNN";
         case INSTR_JV:    return "JV";
         case INSTR_JNV:   return "JNV";
+        case INSTR_WAIT:  return "WAIT";
 
         default:          return "DESCONOCIDA";
     }
 }
 
+// Auxiliar para formatear un operando individual en texto legible
+static void imprimir_operando(Operando op) {
+    switch (op.tipo) {
+        case OPERANDO_REG_RW:
+            printf("R%d", op.valor);
+            break;
+        case OPERANDO_REG_WO:
+            if (op.valor == 1) printf("TBUF");
+            else if (op.valor == 2) printf("SCROLL");
+            else printf("WO#%d", op.valor);
+            break;
+        case OPERANDO_REG_RO:
+            if (op.valor == 1) printf("RINPT");
+            else printf("RO#%d", op.valor);
+            break;
+        case OPERANDO_INMEDIATO:
+            printf("#%d", op.valor);
+            break;
+        case OPERANDO_NULO:
+            printf("NONE");
+            break;
+    }
+}
+
 // Función auxiliar para desempaquetar e imprimir de forma genérica
-static void desempaquetar_e_imprimir(InstruccionParseada* instr) {
+static void desempaquetar_e_imprimir(InstruccionIR* instr) {
     const char* nombre = obtener_nombre_instruccion(instr->tipo);
     printf("[Línea %02d] Parsed: %-5s | ", instr->linea, nombre);
 
     // ====================================================
     // 1. IMPRESIÓN DE DESTINOS (Ortogonalidad)
     // ====================================================
-    // Imprimimos la capa superior de destinos si existen
-    if (instr->reg_gpu || instr->tiene_rd) {
+    bool tiene_destino = (instr->destino[0].tipo != OPERANDO_NULO || 
+                          instr->destino[1].tipo != OPERANDO_NULO);
+
+    if (tiene_destino) {
         printf("Destinos: [");
-        if (instr->reg_gpu) {
-            printf("GPU: Reg#%d", instr->reg_gpu);
-            if (instr->tiene_rd) printf(", ");
-        }
-        if (instr->tiene_rd) {
-            printf("Rd: R%d", instr->rd);
+        bool primero = true;
+        for (int i = 0; i < 2; i++) {
+            if (instr->destino[i].tipo != OPERANDO_NULO) {
+                if (!primero) printf(", ");
+                imprimir_operando(instr->destino[i]);
+                primero = false;
+            }
         }
         printf("] | ");
     }
 
     // ====================================================
-    // 2. IMPRESIÓN DE OPERANDOS FUENTE
+    // 2. IMPRESIÓN DE OPERANDOS FUENTE Y ATRIBUTOS
     // ====================================================
-    switch (instr->tipo) {
-        case INSTR_NOP:
-            printf("Sin operandos\n");
-            break;
-
-        case INSTR_RET:
-            printf("Categoría: SUBRUTINA    | Retorno de función (RET)\n");
-            break;
-
-        // ALU Binarias (Ra, Rb) + update_flags
-        case INSTR_ADD:
-        case INSTR_SUB:
-        case INSTR_ADC:
-        case INSTR_SBC:
-        case INSTR_AND:
-        case INSTR_OR:
-        case INSTR_XOR:
-        case INSTR_SHL:
-        case INSTR_SHR:
-            printf("Categoría: ALU_BINARIA | Ra: R%d, Rb: R%d | UpdateFlags: %d\n",
-                   instr->fuentes.alu.ra,
-                   instr->fuentes.alu.rb,
-                   instr->fuentes.alu.update_flags);
-            break;
-
-        // ALU Unarias (Ra) + update_flags
-        case INSTR_NOT:
-            printf("Categoría: ALU_UNARIA  | Ra: R%d | UpdateFlags: %d\n",
-                   instr->fuentes.alu_unaria.ra,
-                   instr->fuentes.alu_unaria.update_flags);
-            break;
-
-        // Movimiento simple (Rs)
-        case INSTR_MOV:
-            printf("Categoría: MOVIMIENTO  | Rs: R%d\n",
-                   instr->fuentes.mov.rs);
-            break;
-
-        // Movimiento inmediato (valor)
-        case INSTR_MOVI:
-            printf("Categoría: MOV_IMMED   | Inmediato: #%u\n",
-                   instr->fuentes.movi.valor);
-            break;
-
-        // Carga de memoria ([mar])
-        case INSTR_LOAD:
-            printf("Categoría: MEM_LOAD    | MAR: [R%d]\n",
-                   instr->fuentes.load.mar);
-            break;
-
-        // Escritura en memoria (mdr, [mar])
-        case INSTR_STORE:
-            printf("Categoría: MEM_STORE   | MDR: R%d, MAR: [R%d]\n",
-                   instr->fuentes.store.mdr,
-                   instr->fuentes.store.mar);
-            break;
-
-        case INSTR_CMP:
-            printf("Categoría: COMPARE     | Ra: R%d, Rb: R%d | (Evalúa SUB R0, Ra, Rb | UpdateFlags: 1)\n",
-                   instr->fuentes.alu.ra,
-                   instr->fuentes.alu.rb);
-            break;
-        
-        case INSTR_JMP:
-        case INSTR_CALL:
-        case INSTR_JZ:
-        case INSTR_JNZ:
-        case INSTR_JC:
-        case INSTR_JNC:
-        case INSTR_JN:
-        case INSTR_JNN:
-        case INSTR_JV:
-        case INSTR_JNV:
-            printf("Categoría: CONTROL_FLG | Destino PC: #%u\n",
-                   instr->fuentes.salto.destino);
-            break;
-
-        default:
-            printf("Estructura vacía o inválida\n");
-            break;
+    printf("Fuentes: [");
+    bool primera_fuente = true;
+    for (int i = 0; i < 2; i++) {
+        if (instr->fuente[i].tipo != OPERANDO_NULO) {
+            if (!primera_fuente) printf(", ");
+            imprimir_operando(instr->fuente[i]);
+            primera_fuente = false;
+        }
     }
+    printf("]");
+
+    // Mostrar modificador de banderas (.F) si la instrucción lo posee
+    if (instr->tiene_modificador_f) {
+        printf(" | UpdateFlags: .F");
+    }
+
+    printf("\n");
 }
 
 int main() {
@@ -172,14 +136,16 @@ int main() {
         "NOT SCROLL, R2              ; ALU Unaria ortogonal directo a especial (Especial + Rs)\n"
         "LOAD R8, [R1]               ; LOAD estándar\n"
         "LOAD TBUF, R8, [R1]         ; LOAD ortogonal con Rd + Especial\n"
-        "LOAD SCROLL, [R1]            ; LOAD ortogonal directo a especial\n"
+        "LOAD SCROLL, [R1]           ; LOAD ortogonal directo a especial\n"
         "STORE R8, [R5]              ; STORE estándar\n"
         "CMP R1, R2                  ; Comparación básica con coma\n"
         "JZ #16                      ; Salto si Z=1\n"
         "CALL #128                 ; Llamada a subrutina\n"
         "RET                         ; Retorno de subrutina\n"
         "ADD.F SCROLL, R1, R2        ; Suma con actualizador de banderas y guardar resultado en GPU\n"
-        "JNZ #8                      ; Salto condicional si Z=0\n";
+        "JNZ #8                      ; Salto condicional si Z=0\n"
+        "MOV R0, RINPT               ; Pooling a mando\n"
+        ;
     #else
         "; ---- Bloque de Pruebas con Errores Sintácticos ----\n"
         "ADD R1 R2 R3         ; Error 1: Falta coma obligatoria\n"
@@ -198,8 +164,10 @@ int main() {
         "RET R1               ; Error 14: RET no acepta parámetros\n"
         "MOV TBUF,            ; Error 15: MOV con registro especial sin operando fuente\n"
         "LOAD SCROLL,         ; Error 16: LOAD con registro especial sin operando fuente\n"
-        "ADD SCROLL, R1,       ; Error 17: ADD con registro especial sin segundo operando fuente\n"
-        "SBC.F TBUF, R1,     ; Error 18: SBC con registro especial sin segundo operando fuente\n";
+        "ADD SCROLL, R1,      ; Error 17: ADD con registro especial sin segundo operando fuente\n"
+        "SBC.F TBUF, R1,      ; Error 18: SBC con registro especial sin segundo operando fuente\n"
+        "LOAD R1, [RINPT]     ; Error 19: RAM no puede leer de RINPT\n"
+        ;
     #endif
 
     printf("====================================================================\n");
@@ -227,7 +195,7 @@ int main() {
             es_eof = 1;
         }
 
-        InstruccionParseada instr = parsear_linea_tokens(tokens_linea, cantidad_tokens);
+        InstruccionIR instr = parsear_linea_tokens(tokens_linea, cantidad_tokens);
 
         // Si la línea tenía contenido válido (no era comentario ni línea vacía)
         if (instr.tipo != INSTR_DESCONOCIDA) {

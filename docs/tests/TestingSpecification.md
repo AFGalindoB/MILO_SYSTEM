@@ -160,6 +160,7 @@ La documentación detallada de cada conjunto de pruebas se mantiene en documento
   - [Pruebas de compilación relacionadas con la actualización de banderas.](./Test_Flags.md)
   - [Pruebas de compilación relacionadas con control de flujo.](./Test_PC.md)
   - [Pruebas de compilación relacionadas con el renderizado de la gpu.](./Test_GPU.md)
+  - [Pruebas de compilación relacionadas con manejo de entradas.](./Test_Input.md)
 
 Cada documento describe los objetivos de la prueba, los casos cubiertos y los criterios utilizados para validar su funcionamiento.
 

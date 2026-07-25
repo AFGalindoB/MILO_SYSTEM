@@ -51,18 +51,18 @@ Actualmente el ecosistema Milo está compuesto por:
 
 Arquitectura propia basada en una CPU de 24 bits con ISA personalizada, unidad de control cableada y soporte para ejecución de programas escritos en MILO ASM.
 
-✅ Banco de registros.
-✅ ALU.
-✅ Unidad de control.
-✅ Program Counter.
-✅ Stack Pointer.
-✅ Instrucciones aritméticas.
-✅ Instrucciones de memoria.
-✅ Saltos.
-✅ CALL / RET.
-✅ Registros especiales.
-✅ Sincronización WAITV.
-🚧 Interrupciones.
+- ✅ Banco de registros.
+- ✅ ALU.
+- ✅ Unidad de control.
+- ✅ Program Counter.
+- ✅ Stack Pointer.
+- ✅ Instrucciones aritméticas.
+- ✅ Instrucciones de memoria.
+- ✅ Saltos.
+- ✅ CALL / RET.
+- ✅ Registros especiales.
+- ✅ Sincronización WAITV.
+- ✅ Manejo de entradas.
 
 ### GPU
 

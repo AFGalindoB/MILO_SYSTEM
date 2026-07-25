@@ -101,7 +101,7 @@ Token obtener_siguiente_token(void) {
             return crear_token(TOKEN_MODIFICADOR, buffer, 0, l_start, c_start);
         }
 
-        // 6. Procesamiento de palabras (Registros o Identificadores generales)
+        // 6. Procesamiento de palabras (Registros RW/RO/WO o Identificadores generales)
         if (isalpha((unsigned char)c)) {
             char buffer[32] = {0};
             int i = 0;
@@ -115,8 +115,20 @@ Token obtener_siguiente_token(void) {
             if (buffer[0] == 'R' && isdigit((unsigned char)buffer[1])) {
                 uint32_t num_reg = atoi(&buffer[1]);
                 if (num_reg <= 15) {
-                    return crear_token(TOKEN_REGISTRO, buffer, num_reg, l_start, c_start);
+                    return crear_token(TOKEN_REGISTRO_RW, buffer, num_reg, l_start, c_start);
                 }
+            }
+
+            if (strcmp(buffer, "RINPT") == 0) {
+                return crear_token(TOKEN_REGISTRO_RO, buffer, REG_RO_RINPT, l_start, c_start);
+            }
+
+            // C) Registros de Solo Escritura (WO): TBUF, SCROLL
+            if (strcmp(buffer, "TBUF") == 0) {
+                return crear_token(TOKEN_REGISTRO_WO, buffer, REG_WO_TBUF, l_start, c_start);
+            }
+            if (strcmp(buffer, "SCROLL") == 0) {
+                return crear_token(TOKEN_REGISTRO_WO, buffer, REG_WO_SCROLL, l_start, c_start);
             }
             
             // Si empieza por letras pero no es un registro válido, es un Identificador
@@ -203,7 +215,9 @@ int obtener_linea_de_tokens(Token* linea_tokens) {
 const char* tipo_token_a_string(TipoToken tipo) {
     switch (tipo) {
         case TOKEN_IDENTIFICADOR: return "IDENTIFICADOR";
-        case TOKEN_REGISTRO:      return "REGISTRO";
+        case TOKEN_REGISTRO_RW:   return "REGISTRO_RW";
+        case TOKEN_REGISTRO_RO:   return "REGISTRO_RO";
+        case TOKEN_REGISTRO_WO:   return "REGISTRO_WO";
         case TOKEN_INMEDIATO:     return "INMEDIATO";
         case TOKEN_NUMERO:        return "NUMERO";
         case TOKEN_COMA:          return "COMA";

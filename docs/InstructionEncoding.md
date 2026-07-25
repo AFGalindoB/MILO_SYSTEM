@@ -43,7 +43,7 @@ La unidad de control utiliza este campo para habilitar el bloque funcional corre
 | 000011 | PC   |
 | 000100 | STOP |
 
-## Campo Register Control
+## Selección de operandos
 
 El campo Register Control ocupa 12 bits y permite seleccionar simultáneamente tres registros del banco de registros.
 
@@ -62,6 +62,76 @@ RegSrc2: Segundo registro fuente conectado al Bus B.
 | ...  | ...     | ...     | ...     |
 | 1111 | R15     | R15     | R15     |
 
+## Modelo de registros
+
+La arquitectura Milo Alpha clasifica los registros visibles para el programador según el tipo de acceso permitido por el hardware.
+
+Actualmente existen tres categorías de registros:
+
+- Registros de lectura y escritura (RW).
+- Registros de solo escritura (WO).
+- Registros de solo lectura (RO).
+
+Esta clasificación permite integrar periféricos dentro del espacio de registros sin introducir nuevas instrucciones específicas para cada dispositivo.
+
+### Registros de lectura y escritura (RW)
+
+Corresponden al banco de registros de propósito general del procesador.
+
+Estos registros pueden utilizarse libremente como operandos fuente y como destinos de escritura.
+
+Actualmente existen dieciséis registros de propósito general:
+
+| Código | Registro |
+| ------ | -------- |
+| 0000   | R0       |
+| 0001   | R1       |
+| ...    | ...      |
+| 1111   | R15      |
+
+Estos registros son utilizados por todas las operaciones aritméticas, lógicas, de memoria y control de flujo.
+
+### Registros de solo escritura (WO)
+
+Los registros de solo escritura representan periféricos controlados directamente por el procesador.
+
+Su contenido no puede leerse desde el software.
+
+Actualmente se implementan:
+
+| Registro | Función                                                                  |
+| -------- | ------------------------------------------------------------------------ |
+| TBUF     | Escribe un índice de tile dentro del Tile Buffer de la GPU.              |
+| SCROLL   | Actualiza el registro de desplazamiento horizontal y vertical de la GPU. |
+
+Internamente estos registros no forman parte del banco de registros.
+
+Cuando una instrucción utiliza uno de ellos como destino, la unidad de control habilita la señal correspondiente (WE_TILE_BUFFER, SCROLL, etc.) para cargar el dato presente sobre el Bus C.
+
+### Registros de solo lectura (RO)
+
+Los registros de solo lectura representan entradas provenientes del hardware externo.
+
+Actualmente se implementa:
+
+| Registro | Función                          |
+| -------- | -------------------------------- |
+| RINPT    | Registro de entrada del sistema. |
+
+Su contenido únicamente puede ser producido por el hardware.
+
+Las instrucciones pueden utilizar este registro como operando fuente, pero nunca como destino.
+
+### Integración con el Bus C
+
+Todos los registros especiales se integran utilizando el mismo datapath del procesador.
+
+Los registros de solo lectura pueden actuar como fuente del Bus C mediante el campo **Bus C Source Selector**.
+
+Los registros de solo escritura reciben el valor presente sobre el Bus C cuando la unidad de control habilita la señal correspondiente.
+
+De esta manera, la CPU mantiene un único mecanismo de transferencia de datos tanto para el banco de registros como para los periféricos.
+
 ## Bus C Source Selector
 
 Este campo controla el multiplexor que alimenta el Bus C y determina desde qué unidad funcional será obtenido el dato que será distribuido hacia los bloques habilitados durante la ejecución de la instrucción.
@@ -72,6 +142,7 @@ Este campo controla el multiplexor que alimenta el Bus C y determina desde qué 
 | 00001 | RegSrc1         |
 | 00010 | RAM             |
 | 00011 | ROM (Immediate) |
+| 00100 | RINPT           |
 
 El Bus C constituye el camino principal de distribución de datos dentro del procesador.
 
@@ -79,6 +150,7 @@ Dependiendo de las señales de control activadas por la instrucción ejecutada, 
 
 - Banco de registros.
 - La GPU.
+- El registro de entradas de usuario
 
 El campo **Bus C Source Selector** controla el multiplexor asociado a este bus, determinando qué unidad funcional tendrá permiso para colocar información sobre él durante la ejecución de la instrucción.
 
