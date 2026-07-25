@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
+#include "../helpers/compilador_helper.h"
 
 uint32_t contador_errores = 0;
 static RegistroError historial_errores[MAX_ERRORES];
@@ -207,6 +208,13 @@ static uint8_t obtener_destinos_ortogonales(InstruccionIR* ir, int n) {
 }
 
 static void parsear_formato_salto(InstruccionIR* ir, int n) {
+    if (match_tipo(n, TOKEN_IDENTIFICADOR)) {
+        int destino = buscar_etiqueta(linea_tokens[n].lexema);
+        if (destino != -1) {
+            linea_tokens[n].tipo = TOKEN_INMEDIATO;
+            linea_tokens[n].valor = destino;
+        }
+    }
     if (!match_tipo(n, TOKEN_INMEDIATO) && !match_tipo(n, TOKEN_NUMERO)) {
         reportar_error(n, TOKEN_INMEDIATO, "Se esperaba una dirección o etiqueta para la instrucción de salto.");
         return;
@@ -360,6 +368,11 @@ InstruccionIR parsear_linea_tokens(Token* tokens, int cantidad_tokens) {
     // 1. Mnemónico obligatorio al inicio
     if (!match_tipo(0, TOKEN_IDENTIFICADOR)) {
         reportar_error(0, TOKEN_IDENTIFICADOR, "Se esperaba un mnemónico válido al inicio de la línea.");
+        ir.tipo = INSTR_DESCONOCIDA;
+        return ir;
+    }
+
+    if (total_tokens >= 2 && match_tipo(0, TOKEN_IDENTIFICADOR) && match_tipo(1, TOKEN_DOSPUNTOS)) {
         ir.tipo = INSTR_DESCONOCIDA;
         return ir;
     }

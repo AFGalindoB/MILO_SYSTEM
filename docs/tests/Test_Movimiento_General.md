@@ -28,7 +28,7 @@ Cada una de estas instrucciones utiliza rutas de datos diferentes dentro del pro
 
 La compilación debe finalizar correctamente y generar el archivo:
 
-`compilaciones/test_movimiento_general.txt`
+`compilaciones/instrucciones/test_movimiento_general.txt`
 
 Cada instrucción compilada produce una palabra de control y un valor inmediato que posteriormente pueden verificarse subiendo el txt a la ROM en el circuito de logisim `CPU.circ`
 

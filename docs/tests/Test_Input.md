@@ -93,7 +93,7 @@ Cada botón se identifica mediante una máscara distinta aplicada sobre el valor
 
 La compilación debe finalizar sin errores y generar el archivo:
 
-`compilaciones/test_rinpt.txt`
+`compilaciones/instrucciones/test_rinpt.txt`
 
 El archivo generado puede cargarse posteriormente en la ROM del circuito CPU.circ para verificar el funcionamiento conjunto del procesador y el subsistema de entrada.
 

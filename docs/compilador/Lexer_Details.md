@@ -1,32 +1,46 @@
-# Parser Details - Milo ASM
+# Lexer Details - Milo ASM
 
 ## Flujo de funcionamiento
 
-El lexer procesa el código fuente carácter por carácter.
+El lexer constituye la primera etapa del compilador.
 
-Durante este recorrido identifica el comienzo de un elemento léxico, consume los caracteres necesarios para reconocerlo y finalmente produce un token que será entregado al parser.
+Su responsabilidad consiste en recorrer el código fuente carácter por carácter, reconocer los elementos léxicos definidos por el lenguaje y transformarlos en una secuencia de tokens que posteriormente será consumida por el parser.
 
 ```text
-Código Fuente
-      │
-      ▼
+  Código Fuente
+        │
+        ▼
+Inicialización del Lexer
+        │
+        ▼
 Lectura carácter por carácter
-      │
-      ▼
-Reconocimiento del patrón
-      │
-      ▼
+        │
+        ▼
+Reconocimiento del patrón léxico
+        │
+        ▼
 Generación del Token
-      │
-      ▼
-Parser
+        │
+        ▼
+Agrupación por línea
+        │
+        ▼
+      Parser
 ```
 
-El lexer no interpreta el significado de las instrucciones ni verifica que la secuencia de tokens sea válida desde el punto de vista sintáctico. Su única responsabilidad consiste en reconocer correctamente los elementos léxicos definidos por el lenguaje.
+A diferencia de versiones anteriores, el lexer no entrega un flujo continuo de tokens.
+
+El compilador solicita una línea completa mediante:
+
+```c
+obtener_linea_de_tokens()
+```
+
+Esta función consume internamente tantos tokens como sean necesarios hasta encontrar un salto de línea o el final del archivo, permitiendo que el parser procese una instrucción completa en cada iteración.
 
 ## Token
 
-La salida del lexer se encuentra representada mediante la estructura Token.
+La salida del lexer se representa mediante la estructura `Token`.
 
 ```c
 typedef struct {
@@ -38,55 +52,95 @@ typedef struct {
 } Token;
 ```
 
-Cada token almacena la información necesaria para que las etapas posteriores puedan interpretar correctamente el programa.
+Cada token contiene toda la información necesaria para las etapas posteriores del compilador.
 
-| Campo     | Descripción                                                                        |
-| --------- | ---------------------------------------------------------------------------------- |
-| `tipo`    | Clasificación del token reconocido.                                                |
-| `lexema`  | Representación textual encontrada en el código fuente.                             |
-| `valor`   | Valor numérico asociado cuando el token representa un dato numérico o un registro. |
-| `linea`   | Línea donde comienza el token.                                                     |
-| `columna` | Columna donde comienza el token.                                                   |
+| Campo     | Descripción                                          |
+| --------- | ---------------------------------------------------- |
+| `tipo`    | Categoría léxica reconocida.                         |
+| `lexema`  | Texto original encontrado en el código fuente.       |
+| `valor`   | Valor numérico asociado al token cuando corresponde. |
+| `linea`   | Línea donde inicia el token.                         |
+| `columna` | Columna donde inicia el token.                       |
+
+Gracias al campo `valor`, el parser no necesita volver a convertir registros o literales numéricos.
 
 ## Clasificación de tokens
 
-El lexer clasifica cada elemento del lenguaje mediante la enumeración `TipoToken`. Actualmente el compilador reconoce las siguientes categorías léxicas.
+El lexer reconoce actualmente las siguientes categorías léxicas.
 
 ### Identificadores
 
-Representan palabras definidas por el lenguaje que posteriormente serán interpretadas por el parser. Ej:
+Representan símbolos que posteriormente serán interpretados por el parser. Ejemplo:
 
-- ADD
-- MOV
-- LOAD
-- STORE
+```asm
+ADD
+MOV
+LOOP
+WAITV
+```
+
+El lexer no diferencia si un identificador corresponde a un mnemónico o una etiqueta; esa decisión pertenece al parser.
 
 ### Registros
 
-Representan registros de propósito general. Ej:
+El lexer distingue tres clases diferentes de registros.
 
-- R0
-- R5
-- R12
+#### Registros de lectura/escritura (RW)
 
-Además del texto original, el lexer almacena directamente el índice numérico del registro dentro del campo valor.
+Corresponden al banco general del procesador. Ejemplo:
 
-### Valores inmediatos
+```asm
+R0
+R7
+R15
+```
 
-Representan constantes inmediatas precedidas por el prefijo correspondiente. Ej: #25
+Su índice se almacena directamente en `valor`.
 
-El lexer convierte automáticamente la representación textual al valor numérico asociado.
+#### Registros de solo lectura (RO)
+
+Representan recursos hardware que únicamente pueden utilizarse como fuente.
+
+Actualmente existe: `RINPT`
+
+#### Registros de solo escritura (WO)
+
+Representan periféricos del hardware que únicamente aceptan escritura.
+
+Actualmente existen: 
+
+- `TBUF`
+- `SCROLL`
+
+El lexer convierte automáticamente estos registros en identificadores internos utilizados posteriormente por el parser y el encoder.
+
+### Valores inmediatos y Números
+
+Se reconocen literales numéricos sin prefijo y los inmediatos utilizan el prefijo #. Ejemplos:
+
+```asm
+15
+0x100
+
+#25
+#0xFF
+```
+
+Durante el análisis léxico se convierten automáticamente al entero correspondiente.
+
+Se soportan:
+
+- Decimal
+- Hexadecimal
 
 ### Modificadores
 
-Representan modificadores que alteran el comportamiento de un mnemónico. Ej:
+Representan modificadores que alteran el comportamiento de un mnemónico. Ejemplo: `ADD.F`
 
-`ADD.F`
+Durante el análisis se generan dos tokens independientes:
 
-En este caso:
-
-- `ADD` corresponde al identificador.
-- `.F` corresponde al modificador.
+- `ADD` corresponde `IDENTIFICADOR`.
+- `.F` corresponde `MODIFICADOR`.
 
 Esta separación permite que un mismo mnemónico admita múltiples variantes sin incrementar el número de instrucciones del ISA.
 
@@ -111,12 +165,35 @@ El lexer genera además tokens especiales utilizados para controlar el flujo del
 | `TOKEN_EOF`         | Fin del archivo fuente.                 |
 | `TOKEN_ERROR`       | Error léxico durante el reconocimiento. |
 
+## Reconocimiento léxico
+
+El reconocimiento de un token sigue siempre la misma estrategia.
+
+```text
+Leer carácter
+       │
+       ▼
+Determinar categoría
+       │
+       ├───────────────┐
+       ▼               ▼
+Consumir patrón    Error léxico
+       │
+       ▼
+Construir Token
+       │
+       ▼
+Continuar análisis
+```
+
+Cada categoría posee su propio autómata de reconocimiento, permitiendo que el análisis permanezca completamente desacoplado del parser.
+
 ## Filosofía de diseño
 
-El lexer fue diseñado para realizar únicamente reconocimiento léxico.
+El lexer fue diseñado para realizar exclusivamente reconocimiento léxico.
 
-No interpreta instrucciones, no valida operandos y tampoco posee conocimiento del formato físico de las instrucciones ejecutadas por el procesador.
+No interpreta instrucciones, no valida operandos, no conoce formatos de instrucciones ni participa en la generación del microcódigo.
 
-Su única responsabilidad consiste en transformar texto en tokens.
+Su única responsabilidad consiste en transformar texto en tokens tipados.
 
-Esta separación permite que modificaciones en el ISA relacionadas con la gramática puedan implementarse únicamente en el lexer y el parser, sin afectar al encoder encargado de generar la codificación física.
+Esta separación permite que el parser se concentre únicamente en la gramática del lenguaje, mientras que el encoder permanece completamente desacoplado de la representación textual del programa.

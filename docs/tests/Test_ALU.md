@@ -44,7 +44,7 @@ Las instrucciones `MOVI` únicamente inicializan los registros necesarios para e
 
 La compilación debe finalizar sin errores y generar el archivo:
 
-`compilaciones/test_alu.txt`
+`compilaciones/instrucciones/test_alu.txt`
 
 Cada instrucción debe producir una palabra de control cuya selección de operación, registros y señales de control corresponda exactamente con la especificación del Instruction Encoding.
 

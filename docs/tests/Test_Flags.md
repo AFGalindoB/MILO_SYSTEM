@@ -49,7 +49,7 @@ Cada bloque del programa está diseñado para provocar una condición específic
 
 La compilación debe finalizar sin errores y generar el archivo:
 
-`compilaciones/test_flags.txt`
+`compilaciones/instrucciones/test_flags.txt`
 
 Posteriormente, el archivo puede cargarse en la ROM del circuito `CPU.circ` para verificar el comportamiento físico del procesador.
 

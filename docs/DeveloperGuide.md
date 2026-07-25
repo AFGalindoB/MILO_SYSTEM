@@ -4,31 +4,31 @@ Versión: 1.0.0
 
 ## Introducción
 
-Milo Alpha es un proyecto de investigación cuyo objetivo es desarrollar un ecosistema completo alrededor de una arquitectura de procesador propia.
+Milo System es un proyecto de investigación cuyo objetivo es desarrollar un ecosistema completo alrededor de una arquitectura de procesador propia.
 
-A diferencia de muchas arquitecturas tradicionales, el desarrollo de Milo Alpha parte de la implementación física del procesador. El datapath, las señales de control y la organización interna del hardware constituyen la base sobre la que posteriormente se construyen las herramientas de programación.
+A diferencia de muchas arquitecturas tradicionales, el desarrollo de Milo parte de la implementación física del procesador. El datapath, las señales de control y la organización interna del hardware constituyen la base sobre la que posteriormente se construyen las herramientas de programación.
 
 En consecuencia, el conjunto de instrucciones (ISA) no define el funcionamiento interno del procesador, sino que actúa como una capa de abstracción destinada a facilitar su programación. La CPU ejecuta directamente palabras de control, mientras que el ensamblador traduce las instrucciones del ISA hacia dicha representación física.
 
 El proyecto no se limita únicamente al diseño del hardware. Cada nueva capacidad incorporada al procesador requiere también el desarrollo de las herramientas de software necesarias para programarlo, validarlo y facilitar su evolución.
 
-Por este motivo, Milo Alpha evoluciona mediante dos líneas de trabajo estrechamente relacionadas: la implementación del hardware y el desarrollo de su ecosistema de software.
+Por este motivo, Milo evoluciona mediante dos líneas de trabajo estrechamente relacionadas: la implementación del hardware y el desarrollo de su ecosistema de software.
 
 Este documento presenta una visión general del proyecto y sirve como punto de partida para comprender cómo se relacionan sus distintos componentes antes de profundizar en la documentación técnica de cada uno de ellos.
 
 ## Arquitectura del proyecto
 
-El desarrollo de Milo Alpha se organiza actualmente en dos componentes principales que evolucionan de forma coordinada.
+El desarrollo de Milo se organiza actualmente en dos componentes principales que evolucionan de forma coordinada.
 
 - **Hardware**, responsable de implementar físicamente el procesador mediante su datapath, unidad de control y bloques funcionales.
 - **Software**, responsable de proporcionar las herramientas necesarias para programar, compilar y validar dicha implementación hardware.
 
 ```text
-              Milo Alpha
+                 Milo
                    │
       ┌────────────┴────────────┐
       │                         │
-Hardware                  Software
+  Hardware                  Software
       │                         │
       ▼                         ▼
    CPU.circ                MILO ASM
@@ -44,11 +44,11 @@ Esta separación permite que el ISA evolucione independientemente de la represen
 
 ## Software
 
-La capa de software proporciona las herramientas necesarias para programar la arquitectura Milo Alpha.
+La capa de software proporciona las herramientas necesarias para programar la arquitectura Milo.
 
-Actualmente esta capa está compuesta por el compilador MILO ASM, cuya función consiste en traducir programas escritos utilizando el ISA de Milo Alpha hacia la representación binaria que comprende el procesador.
+Actualmente esta capa está compuesta por el compilador MILO ASM, cuya función consiste en traducir programas escritos utilizando el ISA de Milo hacia la representación binaria que comprende el procesador.
 
-Durante este proceso el compilador interpreta el lenguaje ensamblador, valida su sintaxis y finalmente genera la codificación física que será almacenada en la memoria ROM del procesador.
+Durante este proceso el compilador interpreta el lenguaje ensamblador, valida su sintaxis resuelve etiquetas y finalmente genera la codificación física que será almacenada en la memoria ROM del procesador.
 
 Dependiendo de la instrucción, una operación del ISA puede traducirse en una o varias palabras de control físicas. Esto permite que el compilador implemente abstracciones de mayor nivel utilizando múltiples microinstrucciones sin modificar la interfaz ofrecida al programador.
 
@@ -60,7 +60,7 @@ La organización interna del compilador se documenta en:
 
 ## Hardware
 
-La implementación hardware corresponde al procesador Milo Alpha desarrollado utilizando Logisim Evolution.
+La implementación hardware corresponde al procesador Milo desarrollado utilizando Logisim Evolution.
 
 A diferencia de muchas arquitecturas tradicionales, el procesador no ejecuta directamente instrucciones del ISA. Su funcionamiento se basa en una palabra de control que gobierna el datapath mediante señales distribuidas hacia los distintos bloques funcionales.
 
@@ -69,6 +69,7 @@ La CPU implementa el banco de registros, la ALU, la unidad de control, el sistem
 Su organización interna se describe en:
 
 - [Detalles del CPU](./CPU_Details.md)
+- [Detalles de la GPU](./GPU_Details.md)
 
 La estructura física de las instrucciones se documenta por separado mediante la especificación de codificación.
 
@@ -78,11 +79,11 @@ Este documento define cómo se organiza cada palabra de control dentro de la mem
 
 ## Niveles de abstracción
 
-Uno de los conceptos fundamentales de Milo Alpha consiste en distinguir claramente el ISA de la codificación física de las instrucciones.
+Uno de los conceptos fundamentales de Milo consiste en distinguir claramente el ISA de la codificación física de las instrucciones.
 
 Este mecanismo permite introducir instrucciones complejas sin incrementar necesariamente la complejidad del hardware. Cuando resulta conveniente, el encoder puede expandir una instrucción del ISA en una secuencia de microinstrucciones equivalentes.
 
-Por ejemplo, la instrucción RET actualmente se implementa mediante dos palabras de control consecutivas: la primera actualiza el Stack Pointer y la segunda carga el Program Counter desde la pila. Para el programador continúa existiendo una única instrucción RET, mientras que el procesador únicamente ejecuta la secuencia física generada por el compilador.
+Por ejemplo, la instrucción `RET` actualmente se implementa mediante dos palabras de control consecutivas: la primera actualiza el `Stack Pointer` y la segunda carga el `Program Counter` desde la pila. Para el programador continúa existiendo una única instrucción RET, mientras que el procesador únicamente ejecuta la secuencia física generada por el compilador.
 
 El ISA constituye una interfaz orientada al programador. Describe las instrucciones disponibles, su sintaxis y su comportamiento lógico.
 
@@ -107,7 +108,7 @@ Compilador
 Instruction Encoding
     │
     ▼
-CPU
+   CPU
 ```
 
 Aunque ambas capas se encuentran estrechamente relacionadas, no representan el mismo concepto.
@@ -118,11 +119,11 @@ Una única instrucción del ISA puede traducirse en una o varias palabras de con
 
 El procedimiento para incorporar nuevas funcionalidades depende del nivel de la arquitectura que resulte afectado.
 
-### Modelo mental de Milo Alpha
+### Modelo mental de Milo
 
 Antes de modificar cualquier componente del proyecto es importante identificar en qué nivel de abstracción se encuentra el cambio que se desea realizar.
 
-En Milo Alpha existen niveles claramente diferenciados:
+En Milo existen niveles claramente diferenciados:
 
 
 ```text
@@ -172,7 +173,7 @@ Actualizar Encoder
 Ejecutar Tests
 ```
 
-> Los tests continúan siendo válidos porque se encuentran escritos utilizando el ISA de Milo Alpha y no la codificación binaria. Mientras el comportamiento del ISA permanezca inalterado, únicamente el encoder debe adaptarse para generar la nueva representación física de las instrucciones.
+> Los tests continúan siendo válidos porque se encuentran escritos utilizando el ISA de Milo y no la codificación binaria. Mientras el comportamiento del ISA permanezca inalterado, únicamente el encoder debe adaptarse para generar la nueva representación física de las instrucciones.
 
 ### Modificaciones sobre el ISA
 
@@ -205,7 +206,7 @@ El ISA constituye una abstracción de programación, mientras que el Instruction
 
 ## Validación de la arquitectura
 
-Toda modificación realizada sobre Milo Alpha debe validarse mediante el sistema de pruebas del proyecto.
+Toda modificación realizada sobre Milo debe validarse mediante el sistema de pruebas del proyecto.
 
 Actualmente la arquitectura dispone de un conjunto de testbench que permiten verificar tanto las distintas etapas del compilador como la generación de la codificación binaria utilizada por el procesador.
 
@@ -228,7 +229,7 @@ Como regla general:
 
 ## Principio de diseño
 
-En Milo Alpha el hardware constituye la fuente de verdad (source of truth) de la arquitectura.
+En Milo el hardware constituye la fuente de verdad (source of truth) de la arquitectura.
 
 El Instruction Encoding documenta cómo controlar físicamente dicho hardware y el ISA proporciona una interfaz de programación construida sobre esa representación.
 

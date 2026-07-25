@@ -5,13 +5,13 @@ int main() {
     // Código de prueba de 10 líneas con casos estándar, límites y errores adrede
     const char* codigo_prueba = 
         "; Linea 1: Un comentario limpio inicial\n"
-        "START: NOP             ; Linea 2: Etiqueta e instruccion simple\n"
+        "START:                 ; Linea 2: Etiqueta\n"
         "MOVI R1, #10           ; Linea 3: Inmediato estandar\n"
         "mov r2, R1             ; Linea 4: Probar que vuelva mayusculas las minusculas\n"
         "ADD R3, R1 R2          ; Linea 5: Sintaxis de una sola coma\n"
         "LOAD R4, [R15]         ; Linea 6: Limite maximo de registros (R15)\n"
         "STORE R4, [R16]        ; Linea 7: ERROR ADREDE (R16 no existe, debe ser IDENTIFICADOR)\n"
-        "DATA: 255              ; Linea 8: Numero puro (Direccion o constante)\n"
+        "DATA:                  ; Linea 8: Etiqueta\n"
         "MOV R5, #              ; Linea 9: ERROR ADREDE (Simbolo '#' huerfano)\n"
         "@                      ; Linea 10: ERROR ADREDE (Caracter invalido)\n"
         "ADD.F R2, R0 R1        ; Linea 11: Modificador valido adjunto (.F)\n"
@@ -20,15 +20,17 @@ int main() {
         ".                      ; Linea 14: ERROR ADREDE (Punto huerfano sin letras)\n"
         ".123                   ; Linea 15: ERROR ADREDE (Punto seguido de numeros)\n"
         "CMP R1 R2              ; Linea 16: Nueva instruccion de comparacion (Sintaxis limpia)\n"
-        "jmp #12                ; Linea 17: Salto incondicional (Minusculas)\n"
-        "JZ #10                 ; Linea 18: Salto condicional con inmediato\n"
+        "jmp START              ; Linea 17: Salto incondicional (Minusculas)\n"
+        "JZ #0xab               ; Linea 18: Salto condicional con inmediato\n"
         "RET                    ; Linea 19: Retorno de subrutina sin argumentos\n"
         "call #50               ; Linea 20: Llamado a funcion\n"
         "NOT.F R8, R9           ; Linea 21: Modificador .F en operacion unaria\n"
         "JNZ.F #5               ; Linea 22: ERROR ADREDE (Modificador .F en un salto condicional)\n"
-        "MOVI TBUF, R1, #100  ; Linea 23: Instruccion hacia la GPU\n"
+        "MOVI TBUF, R1, #0x3f   ; Linea 23: Instruccion hacia la GPU\n"
         "ADD.F.G SCROLL, R1 R2  ; Linea 24: Doble modificador\n"
-        "MOV R8, RINPT          ; Linea 25: Doble modificador\n";
+        "MOV R8, RINPT          ; Linea 25: Doble modificador\n"
+        "FIN_FN:                ; Linea 26: Identificador con barra baja\n"
+        "JMP FIN_FN             ; Linea 27: Salto a identificador con barra baja\n";
 
     printf("====================================================================\n");
     printf("   🔥 EJECUTANDO TESTBENCH DE ANÁLISIS LÉXICO - MILO ASM 🔥        \n");

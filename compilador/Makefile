@@ -45,6 +45,8 @@ test_gpu:
 test_inputs:
 	make -f makefiles/Makefile.compilacion test_inputs
 
+test_etiquetas:
+	make -f makefiles/Makefile.compilacion test_etiquetas
 
 # --------------------------------------------------------------------
 # 🧹 Limpieza General

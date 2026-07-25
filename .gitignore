@@ -6,6 +6,6 @@ build/
 
 compile_commands.json
 
-/compilaciones
+/compilaciones/instrucciones
 
 /compilador/sdk/compilaciones

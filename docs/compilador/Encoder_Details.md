@@ -11,94 +11,111 @@ typedef struct {
 } PalabraROM;
 ```
 
-Cada instancia de esta estructura representa una palabra de control física almacenada en la memoria ROM del procesador.
+Cada instancia representa una palabra física almacenada en la memoria ROM del procesador.
 
-Dependiendo de la instrucción del ISA, el codificador puede generar una o varias estructuras `PalabraROM`, las cuales serán ejecutadas secuencialmente por la CPU.
+La palabra de control contiene todas las señales necesarias para configurar el hardware durante un ciclo de ejecución, mientras que el campo `immediate` almacena el operando inmediato asociado cuando la instrucción lo requiere.
+
+Dependiendo de la instrucción recibida, el encoder puede generar una o varias estructuras `PalabraROM`, las cuales serán ejecutadas secuencialmente por la CPU.
 
 ## Filosofía de diseño
 
-El codificador fue diseñado siguiendo una filosofía de traducción entre el ISA y la representación física utilizada por el procesador.
+El encoder constituye la frontera entre el ISA y la implementación física del procesador.
 
-Para cada instrucción reconocida por el parser, el encoder decide cómo implementarla mediante una o varias palabras de control compatibles con la arquitectura.
+Recibe una representación completamente independiente del hardware (`InstruccionIR`) y la transforma en una o varias palabras de control compatibles con la arquitectura Milo Alpha.
 
-Cada palabra de control define explícitamente la configuración física del hardware mediante los siguientes campos:
+```text
+InstruccionIR
+        │
+        ▼
+Interpretación de operandos
+        │
+        ▼
+Configuración de señales físicas
+        │
+        ▼
+Construcción de PalabraROM
+```
 
-- Opcode
-- Selección de registros
-- Selector del Bus C
-- Fine Control
-- Immediate
+A partir de esta etapa desaparecen conceptos propios del lenguaje ensamblador como:
 
-En la mayoría de los casos una instrucción del ISA produce una única palabra de control. Sin embargo, determinadas operaciones pueden expandirse en varias palabras físicas cuando así lo requiere la implementación del procesador.
+- MOV
+- ADD
+- LOAD
+- registros RW
+- registros WO
 
-Esta organización mantiene un fuerte paralelismo entre el software y el hardware, permitiendo que el ISA permanezca independiente de la cantidad de operaciones físicas necesarias para ejecutar cada instrucción.
+Y únicamente permanecen señales físicas que posteriormente serán interpretadas por la CPU.
 
 ## Flujo de codificación
 
-Cada instrucción sigue el mismo proceso de transformación.
+Todas las instrucciones siguen el mismo flujo general.
 
 ```text
-InstruccionParseada
+InstruccionIR
         │
         ▼
-Seleccionar operación
+Seleccionar instrucción
         │
         ▼
-Asignar campos físicos
+Resolver operandos
         │
         ▼
-Construir una o varias
-Palabras de Control
+Seleccionar señales hardware
         │
         ▼
-Generar PalabraROM[]
+Empaquetar palabra física
+        │
+        ▼
+PalabraROM[]
 ```
 
-Durante este proceso desaparece completamente la representación del ISA.
+El encoder nunca analiza texto.
 
-A partir de este punto únicamente existe la representación física que será almacenada en la memoria ROM y posteriormente interpretada por la CPU.
+Toda la información necesaria ya fue resuelta previamente por el lexer y el parser.
 
 ## Organización interna
 
-La función principal del módulo es `codificar_instruccion()`.
+La función principal del módulo es: `codificar_instruccion()`.
 
-Internamente la codificación se organiza mediante un `switch` sobre el tipo de instrucción recibido.
+Internamente la codificación se organiza mediante un `switch` sobre `TipoInstruccion`.
 
 ```text
-InstruccionParseada
+InstruccionIR
         │
         ▼
 switch(instr->tipo)
         │
-        ├───────────────┐
-        │               │
-        ▼               ▼
- Operaciones ALU    Transferencias
-        │               │
-        └───────┬───────┘
-                ▼
-      Construcción Control Word
+ ┌──────┼─────────────┐
+ │      │             │
+ ▼      ▼             ▼
+ALU   Movimiento   Control de Flujo
+ │      │             │
+ └──────┴──────┬──────┘
+               ▼
+      Construcción física
 ```
 
-Cada caso del `switch` define explícitamente cómo debe configurarse el hardware para ejecutar esa instrucción.
+Cada familia configura únicamente las señales necesarias para implementar esa operación.
 
-### Construcción de la palabra de control
+### Empaquetado de la palabra de control
 
-El proceso de codificación se realiza en dos etapas.
+Una vez determinadas las señales de hardware, todas son empaquetadas mediante la función:
 
-En primer lugar se construyen de forma independiente todos los campos que forman la instrucción física.
-
-```text
-Opcode
-RegDest
-RegSrc1
-RegSrc2
-Bus C Selector
-Fine Control
-Immediate
+```c
+empaquetar_campos()
 ```
 
-Una vez calculados estos valores, cada campo se desplaza hasta su posición correspondiente dentro de la palabra de 32 bits.
+Esta función recibe los distintos campos físicos:
+
+- Opcode
+- Registro destino
+- Registro fuente 1
+- Registro fuente 2
+- Selector del Bus C
+- Fine Control
+- Immediate
+
+Posteriormente cada campo es desplazado hasta su posición correspondiente dentro de la palabra de control.
 
 ```text
 ┌──────────┬──────────┬──────────┬──────────┬────────────┬──────────────┐
@@ -106,25 +123,64 @@ Una vez calculados estos valores, cada campo se desplaza hasta su posición corr
 └──────────┴──────────┴──────────┴──────────┴────────────┴──────────────┘
 ```
 
-Finalmente todos los campos son combinados mediante operaciones OR para construir una palabra de control física.
+Finalmente todos los campos se combinan mediante operaciones OR para construir la palabra física definitiva.
 
-Cuando una instrucción requiere varias operaciones físicas, este procedimiento se repite para cada una de las palabras de control generadas.
+Gracias a este mecanismo, cualquier modificación del formato binario del procesador queda localizada únicamente dentro del encoder.
 
-Esta metodología mantiene completamente desacoplada la lógica de codificación de la distribución física de los bits.
+## Interpretación de operandos
+
+El encoder no trabaja directamente con registros o inmediatos escritos por el programador.
+
+Toda esa información llega encapsulada mediante la estructura `Operando`.
+
+Durante la codificación el encoder interpreta el tipo de cada operando para decidir cómo debe configurarse el hardware.
+
+Por ejemplo:
+
+- Un registro RW habilita escritura sobre el banco de registros.
+- Un registro RO selecciona una fuente especial para el Bus C.
+- Un registro WO activa señales específicas del hardware.
+- Un inmediato se almacena en el campo `immediate`.
+
+Esta separación mantiene completamente desacoplados el lenguaje ensamblador y la representación física.
+
+## Señales de hardware
+
+Además de seleccionar la operación principal, el encoder configura diversas señales auxiliares del procesador.
+
+Entre ellas se encuentran:
+
+- Escritura sobre registros generales.
+- Actualización de flags.
+- Selección de operación de la ALU.
+- Carry de entrada.
+- Escritura sobre Tile Buffer.
+- Actualización del registro Scroll.
+- Escritura en memoria.
+- Habilitación del Stack Pointer.
+- Selección de saltos condicionales.
+- Selección del Bus C.
+
+Estas señales se agrupan dentro del campo `Fine Control`, cuya interpretación depende del opcode ejecutado.
 
 ### Relación con el hardware
 
-El codificador constituye el único componente del compilador que conoce la representación binaria del procesador.
+El encoder constituye el único módulo del compilador que conoce la codificación física del procesador.
 
-Mientras el lexer y el parser únicamente conocen el lenguaje ensamblador, el codificador conoce la organización física descrita en Instruction Encoding Specification.
+Mientras que:
 
-Esto implica que cualquier modificación sobre el formato de instrucción o sobre las señales de control del procesador afecta únicamente a esta etapa del compilador.
+- El lexer trabaja únicamente con caracteres.
+- El parser trabaja con gramática
+- El compilador coordina el pipeline.
 
-Por este motivo, el codificador actúa como la frontera entre el mundo del software y la implementación física del hardware.
+El encoder conoce:
 
-El encoder constituye además el único componente del compilador autorizado para decidir cómo una instrucción del ISA se traduce físicamente dentro de la ROM.
+- Distribución de bits.
+- Opcodes físicos.
+- Señales de control.
+- Funcionamiento interno de la CPU.
 
-Esto permite que el hardware evolucione sin modificar la sintaxis del lenguaje ensamblador. Cambios en la cantidad de palabras de control necesarias para implementar una instrucción afectan únicamente al encoder, manteniendo estable el resto del pipeline de compilación.
+Por este motivo cualquier modificación del hardware normalmente sólo requiere cambios dentro de este módulo.
 
 ### Expansión de instrucciones
 
@@ -141,3 +197,27 @@ RET
 ```
 
 La responsabilidad de realizar esta expansión pertenece exclusivamente al encoder. El parser continúa trabajando con una única instrucción del ISA y el resto del compilador permanece completamente ajeno a esta implementación.
+
+## Independencia entre ISA y hardware
+
+Una de las características más importantes del encoder es que no existe una correspondencia obligatoria entre una instrucción del ISA y una palabra física.
+
+```text
+            ISA
+             │
+             ▼
+        InstruccionIR
+             │
+             ▼
+          Encoder
+             │
+      ┌──────┴──────┐
+      ▼             ▼
+1 PalabraROM   N PalabrasROM
+      │             │
+      └──────┬──────┘
+             ▼
+        Programa Final
+```
+
+Esta arquitectura permite que el lenguaje ensamblador permanezca estable incluso cuando la implementación física del procesador evoluciona, ya que cualquier cambio en las señales de control o en la cantidad de microoperaciones necesarias queda encapsulado exclusivamente dentro del encoder.

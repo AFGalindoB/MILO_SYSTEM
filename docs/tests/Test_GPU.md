@@ -61,7 +61,7 @@ Finalmente, el programa entra en un ciclo infinito donde espera el inicio del pe
 
 La compilación debe finalizar sin errores y generar el archivo:
 
-`compilaciones/test_gpu.txt`
+`compilaciones/instrucciones/test_gpu.txt`
 
 Cada instrucción debe producir la palabra de control correspondiente para:
 

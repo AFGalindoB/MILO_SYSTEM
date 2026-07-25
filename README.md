@@ -68,25 +68,25 @@ Arquitectura propia basada en una CPU de 24 bits con ISA personalizada, unidad d
 
 Procesador gráfico 2D orientado a sistemas embebidos con soporte para Tile Buffer, scroll por hardware y futura incorporación de sprites (OAM).
 
-✅ Tile Buffer.
-✅ Scroll por hardware.
-✅ Escritura desde MOV, MOVI, LOAD y ALU.
-🚧 OAM.
-🚧 Sprites.
+- ✅ Tile Buffer.
+- ✅ Scroll por hardware.
+- ✅ Escritura desde MOV, MOVI, LOAD y ALU.
+- 🚧 OAM.
+- 🚧 Sprites.
 
 ### Toolchain
 
 Cadena completa de compilación escrita en C:
 
-✅ Lexer.
-✅ Parser.
-✅ Encoder.
-✅ Exportación a codigo en hexadecimal.
-✅ Recuperación de errores.
-✅ Documentación del ISA.
-✅ Sistema de pruebas
-🚧 Resolución automática de etiquetas.
-🚧 Librerías estándar.
+- ✅ Lexer.
+- ✅ Parser.
+- ✅ Encoder.
+- ✅ Exportación a codigo en hexadecimal.
+- ✅ Recuperación de errores.
+- ✅ Documentación del ISA.
+- ✅ Sistema de pruebas
+- ✅ Resolución automática de etiquetas.
+- 🚧 Librerías estándar.
 
 ### Milo Studio
 
@@ -94,14 +94,14 @@ SDK gráfico para el desarrollo de recursos visuales del sistema.
 
 Actualmente incluye:
 
-✅ Editor de tiles 8×8
-✅ Editor de paletas LUT
-✅ Gestión de múltiples tiles
-✅ Exportación de tilesets
-✅ Importación de tiles indexados
-✅ Carga de paletas RGB565
-🚧 Editor de sprites
-🚧 Editor de mapas
+- ✅ Editor de tiles 8×8
+- ✅ Editor de paletas LUT
+- ✅ Gestión de múltiples tiles
+- ✅ Exportación de tilesets
+- ✅ Importación de tiles indexados
+- ✅ Carga de paletas RGB565
+- 🚧 Editor de sprites
+- 🚧 Editor de mapas
 
 ## Documentación
 
@@ -140,6 +140,7 @@ La CPU, la GPU básica, el compilador y el flujo completo de compilación se enc
 
 El desarrollo futuro se centrará en:
 
+- Mejorar las herramientas de desarrollo
 - Migración del hardware desde Logisim Evolution hacia VHDL.
 - Sistema de sprites (OAM).
 - Controlador de audio.

@@ -26,7 +26,7 @@ MOVI R15, #16
 
 La compilación debe finalizar sin errores y generar el archivo:
 
-`compilaciones/test_movi.txt`
+`compilaciones/instrucciones/test_movi.txt`
 
 Cada instrucción compilada produce una palabra de control y un valor inmediato que posteriormente pueden verificarse subiendo el txt a la ROM en el circuito de logisim `CPU.circ`
 

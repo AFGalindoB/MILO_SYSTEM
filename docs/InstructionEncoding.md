@@ -1,4 +1,4 @@
-# Instruction Encoding Specification - Milo Alpha
+# Instruction Encoding Specification - Milo
 
 Versión: 1.0.0
 

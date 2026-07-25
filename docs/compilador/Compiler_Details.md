@@ -2,11 +2,9 @@
 
 ## Introducción
 
-El compilador de Milo Alpha constituye el puente entre el ISA de la arquitectura y la representación física utilizada por el procesador.
+El compilador de Milo traduce programas escritos en lenguaje ensamblador (MILO ASM) hacia la representación física utilizada por el procesador. Su implementación sigue una arquitectura modular organizada en etapas especializadas que incluyen el análisis léxico, el análisis sintáctico, la resolución de símbolos, la codificación de instrucciones y la generación de la imagen final de la ROM.
 
-Su responsabilidad consiste en traducir programas escritos en lenguaje ensamblador hacia la codificación binaria definida por el Instruction Encoding Specification, generando las palabras de control que posteriormente serán ejecutadas por la CPU.
-
-La implementación del compilador sigue una arquitectura modular en la que cada etapa posee una única responsabilidad claramente definida. Esta organización facilita la incorporación de nuevas instrucciones al ISA, simplifica el mantenimiento del código y permite validar cada componente mediante pruebas independientes.
+Esta organización mantiene desacopladas las distintas responsabilidades del proceso de compilación, permitiendo que el ISA evolucione independientemente de su implementación física.
 
 Este documento describe exclusivamente la organización interna del compilador y la función de cada uno de sus módulos.
 
@@ -31,33 +29,73 @@ Cada directorio implementa una etapa específica del proceso de compilación.
 Durante la compilación existen distintos niveles de representación de un mismo programa.
 
 ```text
-Código Fuente (ISA)
+  Código Fuente
+        │
+        ▼
+Preescaneo de etiquetas
         │
         ▼
       Lexer
         │
         ▼
-      Parser
+     Parser
         │
         ▼
      Encoder
         │
         ▼
-Instruction Encoding
+    Imagen ROM
         │
         ▼
-   Archivo ROM
+    Archivo ROM
 ```
 
 Cada etapa consume la representación producida por la etapa anterior y genera una representación de menor nivel hasta obtener la codificación física que será interpretada por el procesador.
 
-Es importante destacar que no existe una correspondencia obligatoria entre una instrucción del ISA y una única palabra de control.
+Es importante destacar que no existe una correspondencia obligatoria entre una instrucción del ISA y una única palabra de control y que hay cosas que no pasan directamente a las palabras de control como las etiquetas donde estas mismas son administradas por el compilador convirtiendolas durante el proceso de parseo en una direccion fisica.
 
 Durante la etapa de codificación, una instrucción del lenguaje ensamblador puede traducirse en una o varias palabras de control físicas dependiendo de la implementación de la arquitectura.
 
 Por ejemplo, una instrucción como `RET` requiere actualmente dos palabras de control consecutivas para restaurar el estado del Stack Pointer y posteriormente cargar el Program Counter desde la pila.
 
 Esta expansión es completamente transparente para el resto del compilador y constituye una responsabilidad exclusiva del encoder.
+
+## Compilación en dos pasadas
+
+El compilador utiliza una estrategia de dos pasadas para permitir referencias hacia etiquetas definidas posteriormente en el código fuente.
+
+Durante la primera pasada se recorren todas las instrucciones con el único objetivo de construir la tabla de símbolos y calcular la dirección física asociada a cada etiqueta.
+
+
+```text
+Código Fuente
+      │
+      ▼
+Primera pasada
+      │
+      ▼
+Tabla de símbolos
+```
+
+Una vez conocida la posición de todas las etiquetas, el compilador reinicia el lexer y ejecuta una segunda pasada completa.
+
+Durante esta etapa las instrucciones son analizadas normalmente por el parser, el cual puede resolver inmediatamente cualquier referencia simbólica consultando la tabla de símbolos.
+
+```text
+Tabla de símbolos
+       │
+       ▼
+Segunda pasada
+       │
+       ▼
+     Lexer
+       │
+       ▼
+     Parser
+       │
+       ▼
+    Encoder
+```
 
 ## Lexer
 
@@ -93,11 +131,22 @@ Para mas detalles revisar: [Encoder Details](./Encoder_Details.md)
 
 ## Helpers
 
-El módulo Helpers agrupa los componentes encargados de coordinar el funcionamiento del compilador y de materializar el resultado final del proceso de compilación.
-
-A diferencia del lexer, parser y codificador, estos módulos no implementan una etapa específica del pipeline. Su responsabilidad consiste en integrar las distintas etapas y proporcionar los mecanismos necesarios para producir el archivo final compatible con la memoria de programa del procesador.
+Además de coordinar las distintas etapas del compilador, este módulo administra el ciclo completo de compilación. Entre sus responsabilidades se encuentran la construcción de la tabla de símbolos, la ejecución de ambas pasadas, la expansión de instrucciones, la construcción de la imagen final de la ROM, la emisión de diagnósticos y la exportación del programa.
 
 Para mas detalles revisar: [Helpers Details](./Helpers_Details.md)
+
+### Resolución de símbolos
+
+El compilador mantiene una tabla global de símbolos utilizada para asociar cada etiqueta del programa con su dirección física dentro de la memoria ROM.
+
+Cada entrada almacena:
+
+- Nombre de la etiqueta.
+- Dirección física.
+
+Durante la primera pasada todas las etiquetas son registradas.
+
+Posteriormente el parser consulta esta tabla para reemplazar automáticamente los identificadores simbólicos por direcciones inmediatas durante la segunda pasada.
 
 ## Tests
 
@@ -121,10 +170,13 @@ Código Fuente
  Test Parser
       │
       ▼
- Test Codificador
+ Test Etiquetas
       │
       ▼
-Palabras de Control
+ Test Encoder
+      │
+      ▼
+ Imagen ROM
 ```
 
 Cada nivel verifica únicamente la responsabilidad que le corresponde.
@@ -139,22 +191,24 @@ Cada etapa transforma la representación producida por la anterior sin depender 
 
 
 ```text
-Código Fuente
-      │
-      ▼
-Lexer
-(Tokens)
-      │
-      ▼
-Parser
-(Instrucción del ISA)
-      │
-      ▼
-Encoder
-(Representación física de la instrucción)
-      │
-      ▼
-ROM
+       Código Fuente
+             │
+             ▼
+         Compilador
+             │
+ ┌───────────┴───────────┐
+ │                       │
+ ▼                       ▼
+Tabla símbolos       Pipeline
+                         │
+                         ▼
+               Lexer → Parser → Encoder
+                         │
+                         ▼
+                     Imagen ROM
+                         │
+                         ▼
+                     Archivo ROM
 ```
 
 Las responsabilidades de cada módulo son las siguientes:

@@ -20,6 +20,16 @@ static char peek(void) {
     return *cursor_codigo;
 }
 
+// Permite hacer lookahead hacia adelante en el stream sin mover el cursor
+static char peek_offset(int offset) {
+    const char* ptr = cursor_codigo;
+    for (int i = 0; i < offset; i++) {
+        if (*ptr == '\0') return '\0';
+        ptr++;
+    }
+    return *ptr;
+}
+
 // Retorna el carácter actual y avanza el cursor a la siguiente dirección de memoria
 static char avanzar_cursor_codigo(void) {
     char caracter_actual = *cursor_codigo;
@@ -102,12 +112,12 @@ Token obtener_siguiente_token(void) {
         }
 
         // 6. Procesamiento de palabras (Registros RW/RO/WO o Identificadores generales)
-        if (isalpha((unsigned char)c)) {
+        if (isalpha((unsigned char)c) || c == '_') {
             char buffer[32] = {0};
             int i = 0;
             
             // Extraer caracteres alfanuméricos consecutivos
-            while (isalnum((unsigned char)peek()) && i < 31) {
+            while ((isalnum((unsigned char)peek()) || peek() == '_') && i < 31) {
                 buffer[i++] = toupper((unsigned char)avanzar_cursor_codigo());
             }
 
@@ -137,22 +147,42 @@ Token obtener_siguiente_token(void) {
 
         // 7. Procesamiento de Inmediatos (Ej: #10)
         if (c == '#') {
-            avanzar_cursor_codigo(); // Consumimos el carácter '#' en memoria
+            avanzar_cursor_codigo(); // Consumir el '#'
             char buffer[32] = {0};
             int i = 0;
-            buffer[0] = '#';
-            i++;
+            buffer[i++] = '#';
 
-            while (isdigit((unsigned char)peek()) && i < 31) {
-                buffer[i++] = avanzar_cursor_codigo();
+            // Usar peek_offset para revisar si viene un prefijo hexadecimal "0x" u "0X"
+            if (peek() == '0' && (peek_offset(1) == 'x' || peek_offset(1) == 'X')) {
+                buffer[i++] = avanzar_cursor_codigo(); // '0'
+                buffer[i++] = avanzar_cursor_codigo(); // 'x' / 'X'
+
+                // Extraer dígitos hexadecimales (0-9, A-F, a-f)
+                while (isxdigit((unsigned char)peek()) && i < 31) {
+                    buffer[i++] = avanzar_cursor_codigo();
+                }
+
+                if (i == 3) { // Error: Escribieron "#0x" pero no pusieron dígitos hex
+                    return crear_token(TOKEN_ERROR, buffer, 0, l_start, c_start);
+                }
+
+                // Convertir la subcadena Hex ("0x14A") a entero sin signo de 32 bits
+                uint32_t val = (uint32_t)strtoul(&buffer[1], NULL, 16);
+                return crear_token(TOKEN_INMEDIATO, buffer, val, l_start, c_start);
+
+            } else {
+                // Formato Decimal Estándar (#123)
+                while (isdigit((unsigned char)peek()) && i < 31) {
+                    buffer[i++] = avanzar_cursor_codigo();
+                }
+
+                if (i == 1) { // Error: Escribieron '#' pero sin dígitos
+                    return crear_token(TOKEN_ERROR, "#", 0, l_start, c_start);
+                }
+
+                uint32_t val = (uint32_t)strtoul(&buffer[1], NULL, 10);
+                return crear_token(TOKEN_INMEDIATO, buffer, val, l_start, c_start);
             }
-
-            if (i == 1) { // Error: Escribieron el '#' pero no le pusieron ningún número
-                return crear_token(TOKEN_ERROR, "#", 0, l_start, c_start);
-            }
-
-            uint32_t val = atoi(&buffer[1]);
-            return crear_token(TOKEN_INMEDIATO, buffer, val, l_start, c_start);
         }
 
         // 8. Números puros (Direcciones de memoria directas o literales)
@@ -160,12 +190,21 @@ Token obtener_siguiente_token(void) {
             char buffer[32] = {0};
             int i = 0;
 
-            while (isdigit((unsigned char)peek()) && i < 31) {
-                buffer[i++] = avanzar_cursor_codigo();
+            if (c == '0' && (peek_offset(1) == 'x' || peek_offset(1) == 'X')) {
+                buffer[i++] = avanzar_cursor_codigo(); // '0'
+                buffer[i++] = avanzar_cursor_codigo(); // 'x'
+                while (isxdigit((unsigned char)peek()) && i < 31) {
+                    buffer[i++] = avanzar_cursor_codigo();
+                }
+                uint32_t val = (uint32_t)strtoul(buffer, NULL, 16);
+                return crear_token(TOKEN_NUMERO, buffer, val, l_start, c_start);
+            } else {
+                while (isdigit((unsigned char)peek()) && i < 31) {
+                    buffer[i++] = avanzar_cursor_codigo();
+                }
+                uint32_t val = (uint32_t)strtoul(buffer, NULL, 10);
+                return crear_token(TOKEN_NUMERO, buffer, val, l_start, c_start);
             }
-
-            uint32_t val = atoi(buffer);
-            return crear_token(TOKEN_NUMERO, buffer, val, l_start, c_start);
         }
 
         // 9. Error Léxico: El carácter actual no encaja en ningún autómata

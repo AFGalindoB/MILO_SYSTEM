@@ -123,7 +123,7 @@ int codificar_instruccion(InstruccionIR* instr, PalabraROM* salida) {
                                     ((ALU_OP_NOT & 0x07) << 4)  |
                                     (scroll << 7)               | 
                                     (we_tile_buffer << 8);
-            salida[0] = empaquetar_campos(OPCODE_ALU, rd, ra, 0, 0x00, fine_control, 0);
+            salida[0] = empaquetar_campos(OPCODE_ALU, rd, ra, 0, BUS_C_ALU, fine_control, 0);
             return 1;
         }
 

@@ -10,6 +10,40 @@ El ISA constituye la interfaz visible para el programador y define la semántica
 
 La representación binaria de las instrucciones y su codificación física se describen en el documento [Instruction Encoding Specification](./InstructionEncoding.md).
 
+## Sintaxis del ensamblador
+
+El compilador de Milo procesa el código fuente instrucción por instrucción.
+
+Cada instrucción posee una sintaxis bien definida que especifica la cantidad y el tipo de operandos requeridos.
+
+Una vez que el compilador ha reconocido todos los operandos necesarios para una instrucción, cualquier token adicional presente en la misma línea será ignorado.
+
+Esto permite que el analizador sintáctico mantenga un comportamiento tolerante frente a texto adicional después de una instrucción válida.
+
+Por ejemplo, las siguientes líneas son equivalentes para el compilador:
+
+```asm
+MOVI R2, #2
+
+MOVI R2, #2 ADD SUB XOR
+```
+
+En ambos casos únicamente se procesa la instrucción `MOVI R2, #2`.
+
+Del mismo modo, una etiqueta finaliza inmediatamente después del carácter :.
+
+```asm
+FIN:
+
+FIN: NOP ADD MOV R0, R1
+```
+
+Representan exactamente la misma definición de etiqueta.
+
+Todo el contenido situado después del carácter : será ignorado.
+
+Este comportamiento forma parte del funcionamiento del compilador y no modifica la semántica del programa generado.
+
 ## Registros
 
 La arquitectura Milo Alpha clasifica los registros visibles para el programador según el tipo de acceso permitido por el hardware.
@@ -56,9 +90,9 @@ Estos registros únicamente pueden utilizarse como operandos fuente.
 
 Intentar escribir sobre ellos constituye un error de compilación.
 
-### Representan periféricos controlados por el procesador.
+### Registros de solo escritura (WO)
 
-Actualmente existen:
+Representan periféricos controlados por el procesador. Actualmente existen:
 
 | Registro | Descripción                           |
 | -------- | ------------------------------------- |
@@ -81,6 +115,43 @@ En este documento se utiliza la siguiente convención.
 
 - Rd = Registro destino
 - Rs = Registro fuente
+
+## Etiquetas
+
+Las etiquetas permiten asignar un nombre simbólico a una dirección del programa.
+
+Su objetivo es facilitar la escritura de saltos, llamadas a subrutinas y referencias dentro del código sin depender de direcciones numéricas.
+
+Una etiqueta se define escribiendo un identificador seguido del carácter `:`.
+
+Ejemplo:
+
+```asm
+INICIO:
+```
+
+Una vez definida, puede utilizarse como operando en cualquier instrucción que espere una dirección.
+
+```asm
+JMP INICIO
+
+CALL MI_FUNCION
+```
+
+Las etiquetas no generan código máquina.
+
+Durante la compilación son reemplazadas por la dirección correspondiente de la instrucción asociada.
+
+
+### Reglas sintácticas de una etiqueta
+
+Una etiqueta:
+
+- Debe finalizar con el carácter `:`.
+- Debe poseer un nombre único dentro del programa.
+- Puede declararse antes o después de ser utilizada.
+- No ocupa espacio en la ROM.
+- No modifica el contador de programa.
 
 ## Transferencia de datos
 
@@ -362,7 +433,8 @@ Sin el modificador `.F`, la operación no altera las banderas.
 Realiza una llamada a una subrutina.
 
 ```asm
-CALL #direccion
+CALL #120
+CALL MI_FUNCION
 ```
 
 La dirección de retorno se almacena automáticamente en la pila.
@@ -390,6 +462,9 @@ La arquitectura dispone de saltos basados en el estado de las banderas.
 ```asm
 JZ #direccion
 JNZ #direccion
+
+JZ MI_FUNCION
+JNZ MI_FUNCION
 ```
 
 ---
@@ -399,6 +474,9 @@ JNZ #direccion
 ```asm
 JC #direccion
 JNC #direccion
+
+JC MI_FUNCION
+JNC MI_FUNCION
 ```
 
 ---
@@ -408,6 +486,9 @@ JNC #direccion
 ```asm
 JN #direccion
 JNN #direccion
+
+JN MI_FUNCION
+JNN MI_FUNCION
 ```
 
 ---
@@ -417,6 +498,9 @@ JNN #direccion
 ```asm
 JV #direccion
 JNV #direccion
+
+JV MI_FUNCION
+JNV MI_FUNCION
 ```
 
 Todos los saltos utilizan una dirección inmediata como destino.

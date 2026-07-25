@@ -66,7 +66,7 @@ El programa simula un flujo de ejecución sencillo compuesto por una fase de ini
 
 La compilación debe finalizar sin errores y generar el archivo:
 
-`compilaciones/test_pc.txt`
+`compilaciones/instrucciones/test_pc.txt`
 
 El archivo generado puede cargarse posteriormente en la ROM del circuito `CPU.circ` para verificar el comportamiento físico del procesador.
 

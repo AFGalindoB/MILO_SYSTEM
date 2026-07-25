@@ -4,7 +4,7 @@ Versión 1.0.0
 
 ## Introducción
 
-El sistema de pruebas de Milo Alpha tiene como objetivo verificar el correcto funcionamiento tanto del compilador como de las herramientas que conforman el ecosistema de desarrollo.
+El sistema de pruebas de Milo tiene como objetivo verificar el correcto funcionamiento tanto del compilador como de las herramientas que conforman el ecosistema de desarrollo.
 
 Las pruebas se encuentran organizadas siguiendo la misma separación de responsabilidades utilizada durante el diseño del compilador. Cada conjunto de tests valida una etapa específica del pipeline de compilación o un conjunto concreto de funcionalidades del ISA.
 
@@ -12,7 +12,7 @@ Esta organización permite detectar errores de forma temprana, aislar la causa d
 
 ## Organización de las pruebas
 
-Las pruebas de Milo Alpha se organizan según el componente de la arquitectura que validan.
+Las pruebas de Milo se organizan según el componente de la arquitectura que validan.
 
 ```text
 tests/
@@ -52,7 +52,7 @@ Esto permite utilizar un mismo programa de prueba tanto para comprobar el compor
 
 Cada prueba del proyecto constituye un ejecutable independiente que puede compilarse y ejecutarse de forma aislada.
 
-Para simplificar el flujo de trabajo, Milo Alpha utiliza un conjunto de Makefiles especializados organizados por categoría de pruebas. El Makefile principal actúa como punto de entrada y delega la compilación hacia los Makefiles correspondientes.
+Para simplificar el flujo de trabajo, Milo utiliza un conjunto de Makefiles especializados organizados por categoría de pruebas. El Makefile principal actúa como punto de entrada y delega la compilación hacia los Makefiles correspondientes.
 
 ### Compilar todas las pruebas
 
@@ -102,6 +102,8 @@ make test_alu
 make test_flags
 make test_pc
 make test_gpu
+make test_inputs
+make test_etiquetas
 ```
 
 ### Limpiar los ejecutables generados
@@ -124,9 +126,9 @@ Su objetivo es facilitar la inspección del comportamiento del lexer y del parse
 
 **Pruebas de compilación:**
 
-Las pruebas de compilación generan programas compilados compatibles con la arquitectura Milo Alpha.
+Las pruebas de compilación generan programas compilados compatibles con la arquitectura Milo.
 
-Cuando la compilación finaliza correctamente, el resultado se exporta como un archivo de texto dentro del directorio: `compilaciones/`
+Cuando la compilación finaliza correctamente, el resultado se exporta como un archivo de texto dentro del directorio: `compilaciones/instrucciones`
 
 Cada archivo contiene la representación binaria de las palabras de control generadas por el compilador, lista para ser utilizada por la memoria ROM del procesador o por los test hardware correspondientes.
 
@@ -161,12 +163,13 @@ La documentación detallada de cada conjunto de pruebas se mantiene en documento
   - [Pruebas de compilación relacionadas con control de flujo.](./Test_PC.md)
   - [Pruebas de compilación relacionadas con el renderizado de la gpu.](./Test_GPU.md)
   - [Pruebas de compilación relacionadas con manejo de entradas.](./Test_Input.md)
+  - [Pruebas de compilación relacionadas con manejo de etiquetas.](./Test_Etiquetas.md)
 
 Cada documento describe los objetivos de la prueba, los casos cubiertos y los criterios utilizados para validar su funcionamiento.
 
 ## Filosofía del sistema de pruebas
 
-El sistema de pruebas de Milo Alpha sigue la misma organización modular utilizada por el compilador.
+El sistema de pruebas de Milo sigue la misma organización modular utilizada por el compilador.
 
 Cada conjunto de pruebas valida una etapa concreta del proceso de compilación. Sin embargo, estas etapas no son independientes entre sí, sino que forman una cadena de dependencias donde cada nivel utiliza el resultado producido por el anterior.
 
