@@ -164,7 +164,6 @@ Usos:
 **Bus B:**
 
 - Segundo operando de la ALU.
-- MDR
 
 **Bus C:**
 
@@ -174,13 +173,14 @@ Sobre este bus pueden colocarse datos provenientes de distintas fuentes internas
 
 - ALU.
 - RAM.
-- Banco de Registros
+- Bus B.
 - Valores inmediatos desde la ROM.
 - Registro de entrada (RINPT).
 
 Dependiendo de las señales de control generadas por la unidad de control, el dato presente sobre el Bus C puede ser escrito en:
 
 - Banco de registros.
+- RAM.
 - Registros especiales de salida (GPU).
 
 > La utilización de tres buses permite leer simultáneamente dos operandos y escribir un resultado durante el mismo ciclo de ejecución.
@@ -205,6 +205,7 @@ Este mecanismo permite generar directamente las señales necesarias para control
 - Acceso a RAM
 - Selección de buses
 - Control de flujo
+- GPU
 
 La unidad de control no emplea memoria de microcódigo ni etapas adicionales de ejecución.
 
@@ -238,7 +239,8 @@ Milo utiliza una organización de memoria dividida:
         +-------------+
           ▲      ▲
           │      │
-         RAM    GPU
+          ▼     GPU 
+         RAM    
 ```
 
 La ROM se conecta directamente a la unidad de procesamiento y constituye la fuente de instrucciones del procesador.
@@ -263,16 +265,14 @@ El procesador incorpora además un Stack Pointer (SP) utilizado para implementar
 
 Actualmente se soportan las siguientes operaciones:
 
-- CALL
-- RET
+- **CALL:** Almacena automáticamente la dirección de retorno sobre el Stack y actualiza el Stack Pointer.
+- **RET:** Recupera dicha dirección y la carga nuevamente en el Program Counter.
+- **JMP:** Permite cargar una direccion en el program counter directamente.
+- **Saltos condicionales:** Permite cargar una direccion en memoria si se cumple una condicion indicada.
+- **WAITV:** Permite detener temporalmente la ejecución de la CPU hasta que la GPU indique el inicio del período de Blank Vertical (Vertical Blank).
+- **WAITH:** Permite detener temporalmente la ejecución de la CPU hasta que la GPU indique el inicio del período de Blank Horizontal (Horizontal Blank).
 
-CALL almacena automáticamente la dirección de retorno sobre el Stack y actualiza el Stack Pointer.
-
-RET recupera dicha dirección y la carga nuevamente en el Program Counter.
-
-WAITV permite detener temporalmente la ejecución de la CPU hasta que la GPU indique el inicio del período de Blank Vertical (Vertical Blank).
-
-Esta instrucción facilita la sincronización entre CPU y GPU evitando modificaciones del estado gráfico durante el proceso de generación del cuadro.
+> WAITV y WAITH facilitan la sincronización entre CPU y GPU evitando modificaciones del estado gráfico durante el proceso de generación del cuadro.
 
 ### Subsistema de entrada
 

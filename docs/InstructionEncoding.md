@@ -4,7 +4,7 @@ Versión: 1.0.0
 
 ## Introducción
 
-Este documento describe la codificación binaria de las instrucciones utilizadas por la arquitectura Milo Alpha.
+Este documento describe la codificación binaria de las instrucciones utilizadas por la arquitectura Milo.
 
 Su objetivo es definir la representación física de una instrucción dentro de la memoria de programa y el significado de cada uno de sus campos, permitiendo implementar ensambladores, desensambladores y herramientas de depuración compatibles con la arquitectura.
 
@@ -64,7 +64,7 @@ RegSrc2: Segundo registro fuente conectado al Bus B.
 
 ## Modelo de registros
 
-La arquitectura Milo Alpha clasifica los registros visibles para el programador según el tipo de acceso permitido por el hardware.
+La arquitectura Milo clasifica los registros visibles para el programador según el tipo de acceso permitido por el hardware.
 
 Actualmente existen tres categorías de registros:
 
@@ -139,7 +139,7 @@ Este campo controla el multiplexor que alimenta el Bus C y determina desde qué 
 |       |                 |
 | ----- | --------------- |
 | 00000 | ALU             |
-| 00001 | RegSrc1         |
+| 00001 | BUS B           |
 | 00010 | RAM             |
 | 00011 | ROM (Immediate) |
 | 00100 | RINPT           |
@@ -149,6 +149,7 @@ El Bus C constituye el camino principal de distribución de datos dentro del pro
 Dependiendo de las señales de control activadas por la instrucción ejecutada, el valor presente sobre este bus puede ser utilizado por distintos bloques funcionales, entre ellos:
 
 - Banco de registros.
+- La RAM
 - La GPU.
 - El registro de entradas de usuario
 
@@ -215,18 +216,63 @@ Fine Control ignorado.
 | `1`   | `SEL_WAIT`         | Control     | 0: HBlank; 1 VBlank                                                  |
 | `0`   | `ENABLE_WAIT`      | Habilitador | Habilita la espera del program counter.                              |
 
-#### Acceso a memoria
+## Acceso a memoria
 
-La arquitectura Milo Alpha no implementa registros dedicados MAR (Memory Address Register) ni MDR (Memory Data Register).
+La arquitectura Milo no implementa registros dedicados **MAR (Memory Address Register)** ni **MDR (Memory Data Register)**.
 
-Durante las operaciones de acceso a memoria, dos registros de propósito general asumen temporalmente estas funciones mediante la activación de la señal `ENABLE_MDR_&_MAR`.
+Las operaciones de memoria utilizan directamente los recursos existentes del datapath mediante la activación de la señal `ENABLE_MDR_&_MAR`.
 
-En este modo de operación:
+Durante una operación de acceso:
 
-- RegSrc1 se conecta al bus de direcciones de la memoria.
-- RegSrc2 se conecta al bus de datos de la memoria.
+- **RegSrc1 (Bus A)** proporciona la dirección de memoria.
+- El **Bus C** proporciona o recibe el dato según el tipo de operación.
 
-Una vez finalizada la operación ambos registros recuperan inmediatamente su comportamiento habitual, sin alterar su naturaleza como registros de propósito general.
+Esta organización permite reutilizar el mismo camino de datos empleado por el resto del procesador, evitando registros intermedios dedicados para el acceso a memoria.
+
+### Lectura (LOAD)
+
+Durante una lectura, el contenido de la dirección indicada por **RegSrc1** es colocado sobre el **Bus C**.
+
+Posteriormente, dicho valor puede escribirse en el banco de registros, en un periférico de salida o en cualquier otro bloque habilitado por la instrucción.
+
+```text
+RegSrc1 (Bus A)
+    │
+    ▼
+Dirección RAM
+    │
+    ▼
+   RAM
+    │
+    ▼
+  Bus C
+    │
+    ▼
+Registro destino
+```
+
+### Escritura (STORE)
+
+Durante una escritura, **RegSrc1** continúa proporcionando la dirección de memoria.
+
+El dato almacenado proviene directamente del **Bus C**, cuya fuente es seleccionada mediante el campo **Bus C Source Selector**.
+
+Esto permite escribir en memoria resultados provenientes de distintas unidades funcionales sin necesidad de copiarlos previamente al banco de registros.
+
+```text
+Dirección RAM <- RegSrc1 (Bus A)
+Dato RAM <- Bus C
+```
+
+Gracias a este mecanismo, la memoria puede recibir datos provenientes de cualquiera de las fuentes disponibles sobre el Bus C, entre ellas:
+
+- Banco de registros.
+- Campo inmediato de la ROM.
+- Registro de entradas (RINPT).
+
+Esta organización reduce el número de microoperaciones necesarias para las escrituras en memoria y mantiene un único mecanismo de transferencia de datos para todo el procesador.
+
+> Nota: Aunque la ALU y la RAM aparecen como posibles fuentes del Bus C, la arquitectura actual no permite utilizarlas simultáneamente con una operación de escritura en memoria. Las instrucciones con OPCODE = ALU no pueden habilitar RAM_WE, por lo que el resultado de una operación aritmético-lógica debe almacenarse primero en el banco de registros antes de escribirse en la RAM. De forma análoga, aunque la RAM puede colocar datos sobre el Bus C durante una lectura, dispone de un único puerto de direcciones, por lo que no es posible realizar una lectura y una escritura sobre direcciones distintas dentro del mismo ciclo de reloj.
 
 ## Decodificación de instrucciones
 
@@ -240,7 +286,7 @@ De esta manera, un mismo conjunto de bits puede adquirir distintos significados 
 
 ## Consideraciones de diseño
 
-La codificación de instrucciones de Milo Alpha fue diseñada para mantener una correspondencia directa entre la representación binaria de una instrucción y las señales físicas del procesador.
+La codificación de instrucciones de Milo fue diseñada para mantener una correspondencia directa entre la representación binaria de una instrucción y las señales físicas del procesador.
 
 En consecuencia, gran parte del proceso de decodificación consiste únicamente en distribuir los diferentes campos de la palabra de control hacia los bloques funcionales correspondientes, reduciendo la lógica combinacional necesaria dentro de la unidad de control.
 

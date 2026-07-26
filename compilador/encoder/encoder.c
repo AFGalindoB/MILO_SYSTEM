@@ -132,9 +132,9 @@ int codificar_instruccion(InstruccionIR* instr, PalabraROM* salida) {
         // ==========================================
         case INSTR_MOV: {
 
-            uint32_t rs1 = (instr->fuente[0].tipo == OPERANDO_REG_RW) ? instr->fuente[0].valor : 0;
+            uint32_t rs2 = (instr->fuente[0].tipo == OPERANDO_REG_RW) ? instr->fuente[0].valor : 0;
 
-            uint32_t bus_c = (instr->fuente[0].tipo == OPERANDO_REG_RO) ? BUS_C_RINPT : BUS_C_REGSRC1;
+            uint32_t bus_c = (instr->fuente[0].tipo == OPERANDO_REG_RO) ? BUS_C_RINPT : BUS_C_REGSRC;
 
             uint32_t fine_control = (regs_enable << 0)   | 
                                     (0 << 1)             | // RAM_WE = 0
@@ -142,7 +142,7 @@ int codificar_instruccion(InstruccionIR* instr, PalabraROM* salida) {
                                     (scroll << 3)        | 
                                     (we_tile_buffer << 4);
 
-            salida[0] = empaquetar_campos(OPCODE_MOV, rd, rs1, 0, bus_c, fine_control, 0);
+            salida[0] = empaquetar_campos(OPCODE_MOV, rd, 0, rs2, bus_c, fine_control, 0);
             return 1;
         }
 
@@ -174,11 +174,23 @@ int codificar_instruccion(InstruccionIR* instr, PalabraROM* salida) {
         }
 
         case INSTR_STORE: {
-            uint32_t mdr = instr->fuente[0].valor;
+            uint32_t rs2 = 0;
+            uint32_t inmediato = 0;
+            uint32_t bus_c;
+
+            if (instr->fuente[0].tipo == OPERANDO_REG_RW){
+                rs2 = instr->fuente[0].valor;
+                bus_c = BUS_C_REGSRC;
+            } else if (instr->fuente[0].tipo == OPERANDO_INMEDIATO) {
+                inmediato = instr->fuente[0].valor;
+                bus_c = BUS_C_ROM_INM;
+            } else {
+                bus_c = BUS_C_RINPT;
+            }
             uint32_t mar = instr->fuente[1].valor;
 
             uint32_t fine_control = (1 << 2) | (1 << 1);
-            salida[0] = empaquetar_campos(OPCODE_MOV, 0, mar, mdr, 0x00, fine_control, 0);
+            salida[0] = empaquetar_campos(OPCODE_MOV, 0, mar, rs2, bus_c, fine_control, inmediato);
             return 1;
         }
 

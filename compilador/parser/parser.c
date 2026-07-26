@@ -224,8 +224,8 @@ static void parsear_formato_salto(InstruccionIR* ir, int n) {
 
 static void parsear_formato_store(InstruccionIR* ir, int n) {
     // Capturar MDR (Registro fuente de datos)
-    if (!match_tipo(n, TOKEN_REGISTRO_RW)) {
-        reportar_error(n, TOKEN_REGISTRO_RW, "Se esperaba el registro fuente de datos (MDR) en STORE.");
+    if (!match_tipo(n, TOKEN_REGISTRO_RW) && !match_tipo(n, TOKEN_INMEDIATO) && !match_tipo(n, TOKEN_REGISTRO_RO)) {
+        reportar_error(n, TOKEN_REGISTRO_RW, "Se esperaba una fuente de datos (MDR) en STORE.");
         return;
     }
     ir->fuente[0] = token_a_operando(linea_tokens[n]);

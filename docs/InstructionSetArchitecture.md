@@ -4,7 +4,7 @@ Versión: 1.0.0
 
 ## Introducción
 
-Este documento describe el conjunto de instrucciones (Instruction Set Architecture, ISA) de la arquitectura Milo Alpha.
+Este documento describe el conjunto de instrucciones (Instruction Set Architecture, ISA) de la arquitectura Milo.
 
 El ISA constituye la interfaz visible para el programador y define la semántica de cada instrucción, su sintaxis en lenguaje ensamblador y el comportamiento esperado durante su ejecución.
 
@@ -46,7 +46,7 @@ Este comportamiento forma parte del funcionamiento del compilador y no modifica 
 
 ## Registros
 
-La arquitectura Milo Alpha clasifica los registros visibles para el programador según el tipo de acceso permitido por el hardware.
+La arquitectura Milo clasifica los registros visibles para el programador según el tipo de acceso permitido por el hardware.
 
 Actualmente existen tres categorías:
 
@@ -110,7 +110,7 @@ En este documento se utiliza la siguiente convención.
 | Símbolo | Significado                                     |
 | ------- | ----------------------------------------------- |
 | `Rn`    | Registro de propósito general.                  |
-| `#n`    | Valor inmediato de 32 bits.                     |
+| `#n`    | Valor inmediato de 24 bits.                     |
 | `[Rn]`  | Dirección de memoria almacenada en un registro. |
 
 - Rd = Registro destino
@@ -296,31 +296,57 @@ Escribe una palabra en la memoria RAM.
 
 ```asm
 STORE Rs, [Ra]
+STORE RINPT, [Ra]
+STORE #n, [Ra]
 ```
 
 Donde:
 
 - `Rs` contiene el dato que será escrito.
 - `Ra` contiene la dirección de memoria de destino.
+- `RINPT` permite escribir directamente el contenido del registro de entrada.
+- `#n` representa un valor inmediato de 24 bits.
 
 **Ejemplo:**
 
 ```asm
 STORE R2, [R4]
+
+STORE RINPT, [R4]
+
+STORE #0x1a, [R4]
 ```
 
-Durante la ejecución:
+**Funcionamiento**
 
-- `Ra` actúa temporalmente como **MAR (Memory Address Register)**.
-- `Rs` actúa temporalmente como **MDR (Memory Data Register)**.
+Durante la ejecución de `STORE`:
+
+- `Ra` actúa temporalmente como **Memory Address Register (MAR)** y suministra la dirección de memoria.
+- El dato a escribir proviene del **Bus C**, cuyo origen es seleccionado por el campo **Bus C Source Selector** de la instrucción.
+
+Dependiendo de la configuración del Bus C, la memoria puede recibir datos provenientes de:
+
+- Un registro de propósito general.
+- El registro de entrada (`RINPT`).
+- Un valor inmediato almacenado en la ROM.
+
+Esta organización permite escribir distintos tipos de datos en memoria utilizando una única instrucción, sin necesidad de cargar previamente toda la información en el banco de registros.
 
 ### Consideraciones
 
-La arquitectura Milo Alpha no implementa registros dedicados para MAR y MDR.
+La arquitectura Milo no implementa registros dedicados para **MAR (Memory Address Register)** ni **MDR (Memory Data Register)**.
 
-Durante las operaciones de acceso a memoria, dos registros de propósito general asumen temporalmente estas funciones, reduciendo la cantidad de hardware dedicado y manteniendo un banco de registros uniforme.
+Durante una operación `STORE`, el registro utilizado como dirección actúa temporalmente como **MAR**, mientras que el dato es suministrado directamente por el **Bus C**.
 
-En consecuencia, antes de ejecutar un `STORE`, tanto la dirección de memoria como el dato a escribir deben encontrarse previamente cargados en registros de propósito general.
+Esto permite que una operación de escritura obtenga el dato desde distintas fuentes sin requerir transferencias adicionales al banco de registros.
+
+Actualmente pueden escribirse en memoria valores provenientes de:
+
+- Registros de propósito general.
+- El registro de entrada (`RINPT`).
+- Valores inmediatos almacenados en la ROM.
+
+Gracias a este diseño, muchas operaciones de escritura pueden realizarse en un único ciclo menos respecto a implementaciones donde el dato debe copiarse previamente a un registro temporal.
 
 ## Instrucciones Aritmético-Lógicas
 

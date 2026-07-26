@@ -13,7 +13,7 @@
 
 // Bus C Source Selector
 #define BUS_C_ALU       0x00
-#define BUS_C_REGSRC1   0x01
+#define BUS_C_REGSRC    0x01
 #define BUS_C_RAM       0x02
 #define BUS_C_ROM_INM   0x03
 #define BUS_C_RINPT     0x04
