@@ -312,29 +312,27 @@ h2.palette-title {
 
 /* Items individuales de la lista */
 .sprite-item {
-    background-color: #2b2b2b;
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    padding: 8px;
     display: flex;
     align-items: center;
-    gap: 8px;
+    justify-content: space-between;
+    padding: 6px 10px;
+    background-color: #1e1e1e;
+    border: 1px solid #333;
+    border-radius: 4px;
+    margin-bottom: 6px;
     cursor: pointer;
     user-select: none;
-    font-size: 0.8rem;
-    transition: all 0.15s ease;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 
 .sprite-item:hover {
-    background-color: #353535;
-    border-color: #555;
+    background-color: #2a2a2a;
+    border-color: #444;
 }
 
 .sprite-item.active {
-    background-color: #41a6f6;
-    color: #000;
-    border-color: #fff;
-    font-weight: bold;
+    background-color: #2b3846;
+    border-color: #007acc;
 }
 
 .sprite-index {
@@ -351,4 +349,22 @@ h2.palette-title {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.btn-delete-sprite {
+    background: transparent;
+    border: none;
+    color: #888;
+    font-size: 1.1rem;
+    line-height: 1;
+    padding: 0 4px;
+    margin-left: 8px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.btn-delete-sprite:hover {
+    color: #ff5555;
+    background-color: rgba(255, 85, 85, 0.15);
 }

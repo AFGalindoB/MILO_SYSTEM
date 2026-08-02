@@ -58,6 +58,31 @@ function manejadorMouseEnter(elementoPixel, indice, x, y) {
     }
 }
 
+function eliminarLienzo(indexAEliminar) {
+    // 1. Regla de seguridad: No permitir borrar si solo queda un lienzo en el banco
+    if (bancoLienzos.length <= 1) {
+        alert("El editor debe contener al menos un lienzo activo.");
+        return;
+    }
+
+    // 2. Remover el lienzo de la memoria
+    bancoLienzos.splice(indexAEliminar, 1);
+
+    // 3. Ajustar el puntero del lienzo activo
+    if (indexAEliminar === indiceLienzoActivo) {
+        // Si borramos el lienzo en el que estábamos parados, seleccionamos el anterior o el cero
+        indiceLienzoActivo = Math.max(0, indexAEliminar - 1);
+    } else if (indexAEliminar < indiceLienzoActivo) {
+        // Si borramos un lienzo a la izquierda del activo, recorremos el índice 1 posición atrás
+        indiceLienzoActivo--;
+    }
+
+    // 4. Refrescar el canvas físico y la lista gráfica
+    editorLienzo.setData(bancoLienzos[indiceLienzoActivo].matriz);
+    renderizarListaLienzos();
+    console.log(`🗑️ Lienzo borrado. Quedan ${bancoLienzos.length} lienzos.`);
+}
+
 function renderizarListaLienzos() {
     if (!listaSpritesDOM) return;
     listaSpritesDOM.innerHTML = "";
@@ -68,9 +93,11 @@ function renderizarListaLienzos() {
         if (index === indiceLienzoActivo) item.classList.add("active");
         item.dataset.index = index;
 
+        // Añadimos el botón de eliminar <button class="btn-delete-sprite">×</button>
         item.innerHTML = `
             <span class="sprite-index">#${String(index + 1).padStart(2, '0')}</span>
             <span class="sprite-name">${lienzo.nombre}</span>
+            <button class="btn-delete-sprite" title="Eliminar lienzo" aria-label="Eliminar lienzo">×</button>
         `;
 
         // Intercambio de buffer al cambiar de lienzo
@@ -83,9 +110,16 @@ function renderizarListaLienzos() {
             // Cambiar puntero del lienzo activo
             indiceLienzoActivo = index;
             
-            // Cargar los datos del nuevo lienzo en la VRAM y redibujar selectores
+            // Cargar los datos del nuevo lienzo en la VRAM y redibujar
             editorLienzo.setData(bancoLienzos[indiceLienzoActivo].matriz);
             renderizarListaLienzos();
+        });
+
+        // Evento para la X de eliminación
+        const btnEliminar = item.querySelector(".btn-delete-sprite");
+        btnEliminar.addEventListener("click", (e) => {
+            e.stopPropagation(); // Evitar que seleccione el lienzo al hacer clic en borrar
+            eliminarLienzo(index);
         });
 
         listaSpritesDOM.appendChild(item);
@@ -141,27 +175,39 @@ window.addEventListener("mouseup", () => {
     botonMousePresionado = null;
 });
 
-// ---- EXPORTACIÓN DE TODO EL TILESET (TODOS LOS LIENZOS) ----
+// ---- EXPORTACIÓN DE TODO EL TILESET (8bpp: 8 píxeles por fila, 2 dígitos hex por píxel) ----
 document.getElementById("btnExportar").addEventListener("click", () => {
-    // 1. Asegurar que el lienzo que se está editando actualmente esté guardado en memoria
+    // 1. Asegurar que el lienzo activo se guarde en el banco de memoria
     bancoLienzos[indiceLienzoActivo].matriz = editorLienzo.getData();
 
-    // 2. Concatenar las matrices de TODOS los lienzos en un único arreglo plano
-    const todosLosPixeles = [];
+    const lineasExportacion = [];
+
+    // 2. Procesar cada lienzo del banco
     bancoLienzos.forEach(lienzo => {
-        todosLosPixeles.push(...lienzo.matriz);
+        // Un tile de 8x8 consta de 8 filas
+        for (let fila = 0; fila < 8; fila++) {
+            let stringFila = "";
+            for (let col = 0; col < 8; col++) {
+                const indicePixel = fila * 8 + col;
+                const valorColor = lienzo.matriz[indicePixel];
+                
+                // Formatear a 2 dígitos hexadecimales en minúscula (ej: 0 -> "00", 12 -> "0c")
+                const hex2Digitos = valorColor.toString(16).padStart(2, '0');
+                stringFila += hex2Digitos;
+            }
+            lineasExportacion.push(stringFila);
+        }
     });
 
-    // 3. Convertir cada índice a su representación Hexadecimal (0-f) por línea
-    const listaIndicesHex = todosLosPixeles.map(indice => indice.toString(16));
-    const textoPlano = listaIndicesHex.join("\n");
+    // 3. Unir las filas por salto de línea
+    const textoPlano = lineasExportacion.join("\n");
 
-    // 4. Descargar el archivo empaquetado
+    // 4. Descargar el archivo
     const blob = new Blob([textoPlano], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     
-    let nombreArchivo = inputNombreArchivo ? inputNombreArchivo.value.trim() : "tileset_indexed";
-    if (nombreArchivo === "") nombreArchivo = "tileset_indexed";
+    let nombreArchivo = inputNombreArchivo ? inputNombreArchivo.value.trim() : "tileset_8bpp";
+    if (nombreArchivo === "") nombreArchivo = "tileset_8bpp";
 
     const a = document.createElement("a");
     a.href = url;
@@ -171,10 +217,10 @@ document.getElementById("btnExportar").addEventListener("click", () => {
     
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    console.log(`🚀 Tileset exportado con éxito. Total lienzos: ${bancoLienzos.length}`);
+    console.log(`🚀 Tileset 8bpp exportado con éxito. Total lienzos: ${bancoLienzos.length}`);
 });
 
-// ---- IMPORTACIÓN DINÁMICA DE TILESET AGREGANDO AL FINAL ----
+// ---- IMPORTACIÓN HÍBRIDA / AUTO-DETECTABLE (v1 Legacy & v2 8bpp) ----
 document.getElementById("upload-tile").addEventListener("change", function(evento) {
     const archivo = evento.target.files[0];
     if (!archivo) return;
@@ -185,62 +231,121 @@ document.getElementById("upload-tile").addEventListener("change", function(event
     const lector = new FileReader();
     lector.onload = function(e) {
         const contenido = e.target.result;
-        // Limpiar saltos de línea y filtrar vacíos
+        // Limpiar saltos de línea y filtrar líneas vacías
         const lineas = contenido.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
         
-        // Validación básica: el archivo debe ser múltiplo de 64 (8x8)
-        if (lineas.length === 0 || lineas.length % TOTAL_PIXELS !== 0) {
-            alert(`Error: El archivo no tiene un tamaño válido. Contiene ${lineas.length} píxeles, y debe ser múltiplo de ${TOTAL_PIXELS} para armar la cuadrícula de 8x8.`);
+        if (lineas.length === 0) {
+            alert("Error: El archivo cargado está vacío.");
             return;
         }
 
-        // 1. Asegurar la persistencia del lienzo que el usuario está editando actualmente antes de la importación
+        // 1. Detección automática de formato examinando la primera línea
+        const primeraLineaLen = lineas[0].length;
+        let esFormatoV2 = false;
+
+        if (primeraLineaLen > 2) {
+            // Si la línea tiene más de 2 caracteres (esperamos 16), asumimos Formato v2 (8bpp por fila)
+            esFormatoV2 = true;
+        } else if (lineas.length % TOTAL_PIXELS === 0) {
+            // Si las líneas equivalen exactamente a múltiplos de 64, es Formato v1 (1 píxel por línea)
+            esFormatoV2 = false;
+        } else if (lineas.length % 8 === 0) {
+            // Si la longitud de línea es ambigua pero el total de líneas es múltiplo de 8, asumimos v2
+            esFormatoV2 = true;
+        }
+
+        // 2. Validación de integridad de estructura según el formato detectado
+        if (esFormatoV2) {
+            if (lineas.length % 8 !== 0) {
+                alert(`Error [v2 8bpp]: El archivo debe tener un número de líneas múltiplo de 8. Se encontraron ${lineas.length} líneas.`);
+                return;
+            }
+        } else {
+            if (lineas.length % TOTAL_PIXELS !== 0) {
+                alert(`Error [v1 Legacy]: El archivo debe tener un número de líneas múltiplo de 64 (${TOTAL_PIXELS}). Se encontraron ${lineas.length} líneas.`);
+                return;
+            }
+        }
+
+        // 3. Persistir el lienzo actual antes de cargar los nuevos
         bancoLienzos[indiceLienzoActivo].matriz = editorLienzo.getData();
 
-        // 2. Determinar en qué posición del banco vamos a empezar a insertar
         let totalLienzosPrevios = bancoLienzos.length;
-        let primerNuevoIndice = totalLienzosPrevios; // El primer lienzo importado tomará este índice
-
-        let matrizTemporal = [];
+        let primerNuevoIndice = totalLienzosPrevios;
         let contadorNuevosLienzos = 0;
 
-        // 3. Procesar el flujo de píxeles e ir agregando los nuevos lienzos al banco existente
-        for (let i = 0; i < lineas.length; i++) {
-            const caracterHex = lineas[i];
-            const indiceColor = parseInt(caracterHex, 16);
-            
-            // Validar rango de color (0-15)
-            const colorValidado = (!isNaN(indiceColor) && indiceColor >= 0 && indiceColor <= 15) ? indiceColor : 0;
-            matrizTemporal.push(colorValidado);
+        // 4. Parser según el formato detectado
+        if (esFormatoV2) {
+            // --- PARSER FORMATO V2 (8bpp: 8 filas por tile, 16 hex chars por fila) ---
+            for (let i = 0; i < lineas.length; i += 8) {
+                const matrizTile = [];
 
-            // Cada vez que acumulamos un bloque de 64 píxeles (8x8)
-            if (matrizTemporal.length === TOTAL_PIXELS) {
+                for (let fila = 0; fila < 8; fila++) {
+                    const lineaHex = lineas[i + fila];
+
+                    for (let col = 0; col < 8; col++) {
+                        // Extraer pares de caracteres hexadecimales (00 - FF)
+                        const subHex = lineaHex.substr(col * 2, 2);
+                        let valIndex = parseInt(subHex, 16);
+
+                        if (isNaN(valIndex)) valIndex = 0;
+
+                        // Como el GUI actual soporta 16 colores, aplicamos una máscara
+                        // para proyectarlo de forma segura al rango 0-15
+                        valIndex = valIndex & 0x0F;
+
+                        matrizTile.push(valIndex);
+                    }
+                }
+
                 contadorNuevosLienzos++;
                 const nuevoId = totalLienzosPrevios + contadorNuevosLienzos - 1;
 
                 bancoLienzos.push({
                     id: nuevoId,
                     nombre: `Lienzo ${nuevoId + 1}`,
-                    matriz: [...matrizTemporal]
+                    matriz: matrizTile
                 });
-
-                // Resetear el acumulador para el próximo bloque
-                matrizTemporal = [];
             }
+            console.log(`📥 Importación V2 (8bpp) exitosa. Se añadieron ${contadorNuevosLienzos} lienzos.`);
+
+        } else {
+            // --- PARSER FORMATO V1 (Legacy: 1 hex char por línea, 64 líneas por tile) ---
+            let matrizTemporal = [];
+
+            for (let i = 0; i < lineas.length; i++) {
+                const caracterHex = lineas[i];
+                let indiceColor = parseInt(caracterHex, 16);
+
+                if (isNaN(indiceColor)) indiceColor = 0;
+                indiceColor = indiceColor & 0x0F;
+
+                matrizTemporal.push(indiceColor);
+
+                if (matrizTemporal.length === TOTAL_PIXELS) {
+                    contadorNuevosLienzos++;
+                    const nuevoId = totalLienzosPrevios + contadorNuevosLienzos - 1;
+
+                    bancoLienzos.push({
+                        id: nuevoId,
+                        nombre: `Lienzo ${nuevoId + 1}`,
+                        matriz: [...matrizTemporal]
+                    });
+
+                    matrizTemporal = [];
+                }
+            }
+            console.log(`📥 Importación V1 (Legacy) exitosa. Se añadieron ${contadorNuevosLienzos} lienzos.`);
         }
 
-        // 4. Mover el foco activo automáticamente al primer lienzo de la tanda recién importada
+        // 5. Mover foco al primer lienzo recién importado y refrescar la vista
         indiceLienzoActivo = primerNuevoIndice;
-
-        // 5. Cargar los datos en la pantalla física y actualizar el selector del DOM
         editorLienzo.setData(bancoLienzos[indiceLienzoActivo].matriz);
         renderizarListaLienzos();
-        
-        console.log(`📥 Importación sucesiva completada. Se añadieron ${contadorNuevosLienzos} nuevos lienzos sin alterar los anteriores.`);
     };
 
     lector.readAsText(archivo);
-    evento.target.value = ""; // Resetear el input para permitir cargar el mismo archivo consecutivamente si se desea
+    evento.target.value = ""; // Permitir recargar el mismo archivo si se desea
 });
 
 inicializarPaleta();

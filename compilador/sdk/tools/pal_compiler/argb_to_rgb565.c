@@ -5,7 +5,7 @@
 #include <sys/stat.h>
 #include <errno.h>
 
-#define MAX_PALETTE_COLORS 16
+#define MAX_PALETTE_COLORS 256
 
 // ---- 1. CONVERSIÓN MATEMÁTICA PURA ----
 uint16_t convertir_argb_a_rgb565(uint32_t argb) {
