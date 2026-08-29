@@ -208,9 +208,9 @@ El registro de desplazamiento utiliza un bus de 14 bits donde los campos de desp
 
 | Bits    | Destino         | Tamaño |
 | ------- | --------------- | ------ |
-| `13-10` | Tile Offset Y   | 4 bits |
-| `9-7`   | Pixel Offset Y  | 3 bits |
-| `6-3`   | Tile Offset X   | 4 bits |
+| `17-12` | Tile Offset Y   | 6 bits |
+| `11-9`  | Pixel Offset Y  | 3 bits |
+| `8-3`   | Tile Offset X   | 6 bits |
 | `2-0`   | Pixel Offset X  | 3 bits |
 
 Esta organización permite actualizar simultáneamente el desplazamiento fino y el desplazamiento grueso mediante una única operación de escritura.
