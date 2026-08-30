@@ -28,10 +28,10 @@ int main() {
 
 
     printf("====================================================================\n");
-    printf("   🔥 TEST: COMPILACIÓN GPU - HOLA MUNDO CON SCROLL 🔥 \n");
+    printf("   🔥 TEST: COMPILACIÓN GPU - HOLA MUNDO 🔥 \n");
     printf("====================================================================\n\n");
 
-    int resultado = compilar_y_exportar("test_gpu_scroll.txt", codigo_prueba);
+    int resultado = compilar_y_exportar("test_gpu_hello_world.txt", codigo_prueba);
 
     printf("====================================================================\n");
     return resultado;

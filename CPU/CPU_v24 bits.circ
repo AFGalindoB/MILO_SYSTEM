@@ -331,11 +331,6 @@
       <a name="out_width" val="6"/>
       <a name="type" val="zero"/>
     </comp>
-    <comp lib="0" loc="(1770,690)" name="Bit Extender">
-      <a name="in_width" val="1"/>
-      <a name="out_width" val="6"/>
-      <a name="type" val="zero"/>
-    </comp>
     <comp lib="0" loc="(1780,850)" name="Bit Extender">
       <a name="out_width" val="24"/>
       <a name="type" val="zero"/>
@@ -1200,14 +1195,11 @@
     <comp lib="3" loc="(1900,560)" name="Adder">
       <a name="width" val="6"/>
     </comp>
-    <comp lib="3" loc="(1900,630)" name="Subtractor">
-      <a name="width" val="6"/>
-    </comp>
     <comp lib="3" loc="(2140,390)" name="Comparator">
       <a name="mode" val="unsigned"/>
       <a name="width" val="6"/>
     </comp>
-    <comp lib="3" loc="(2270,430)" name="Subtractor">
+    <comp lib="3" loc="(2270,430)" name="Adder">
       <a name="width" val="3"/>
     </comp>
     <comp lib="3" loc="(2580,170)" name="Comparator">
@@ -1377,8 +1369,8 @@
 8000610000002c0 8000610000122c1 8000610000092c2 8000610000132c3 8000610000152c4 8000610000132c5 8000610000002c6 8000610000012c7
 8000610000002c8 8000610000052c9 80006100000c2ca 8000610000092cb 8000610000142cc 8000610000002cd 8000610000012ce 80006100000c2cf
 8000610000092d0 8000610000112d1 8000610000152d2 8000610000012d3 80006100000d2d4 8000610000002d5 8000610000142d6 8000610000052d7
-80006100000d2d8 8000610000102d9 8000610000152da 8000610000132db 800060100000001 88006010000007f 840060100000000 1000000300000000
-440408300000000 408401600000000 c0000a0000002e4 c000001000002df 840060100000000 c000001000002df
+80006100000d2d8 8000610000102d9 8000610000152da 8000610000132db 800060100000200 840060100000000 1000000300000000 440408300000000
+c000001000002de
 </a>
       <a name="dataWidth" val="64"/>
       <a name="label" val="CODE_ROM"/>
@@ -1399,6 +1391,8 @@
       <a name="asyncread" val="true"/>
       <a name="clearpin" val="true"/>
       <a name="dataWidth" val="12"/>
+      <a name="label" val="TILE_BUFFER"/>
+      <a name="labelvisible" val="true"/>
     </comp>
     <comp lib="5" loc="(2060,440)" name="Register">
       <a name="appearance" val="classic"/>
@@ -1451,6 +1445,8 @@ c00000000 c0000000000 c000000000000 c0c0c0c0c0000 8*c0c0c0c0c0c0c0c 8*1020304050
       <a name="appearance" val="classic"/>
       <a name="byteenables" val="byteEnables"/>
       <a name="dataWidth" val="64"/>
+      <a name="label" val="LINE_BUFFER_0"/>
+      <a name="labelvisible" val="true"/>
       <a name="trigger" val="falling"/>
     </comp>
     <comp lib="5" loc="(2960,700)" name="DualRAM">
@@ -1458,6 +1454,8 @@ c00000000 c0000000000 c000000000000 c0c0c0c0c0000 8*c0c0c0c0c0c0c0c 8*1020304050
       <a name="appearance" val="classic"/>
       <a name="byteenables" val="byteEnables"/>
       <a name="dataWidth" val="64"/>
+      <a name="label" val="LINE_BUFFER_1"/>
+      <a name="labelvisible" val="true"/>
       <a name="trigger" val="falling"/>
     </comp>
     <comp lib="5" loc="(3340,640)" name="ROM">
@@ -1853,9 +1851,6 @@ c00000000 c0000000000 c000000000000 c0c0c0c0c0000 8*c0c0c0c0c0c0c0c 8*1020304050
     <wire from="(1720,140)" to="(1720,570)"/>
     <wire from="(1720,140)" to="(2530,140)"/>
     <wire from="(1720,570)" to="(1860,570)"/>
-    <wire from="(1720,690)" to="(1720,800)"/>
-    <wire from="(1720,690)" to="(1730,690)"/>
-    <wire from="(1720,800)" to="(2250,800)"/>
     <wire from="(1720,870)" to="(1720,880)"/>
     <wire from="(1730,850)" to="(1740,850)"/>
     <wire from="(1750,990)" to="(1750,1050)"/>
@@ -1866,7 +1861,6 @@ c00000000 c0000000000 c000000000000 c0c0c0c0c0000 8*c0c0c0c0c0c0c0c 8*1020304050
     <wire from="(1770,500)" to="(1770,530)"/>
     <wire from="(1770,530)" to="(2040,530)"/>
     <wire from="(1770,630)" to="(1800,630)"/>
-    <wire from="(1770,690)" to="(1850,690)"/>
     <wire from="(1780,480)" to="(1800,480)"/>
     <wire from="(1780,850)" to="(1790,850)"/>
     <wire from="(1790,1060)" to="(1790,1080)"/>
@@ -1882,16 +1876,17 @@ c00000000 c0000000000 c000000000000 c0c0c0c0c0000 8*c0c0c0c0c0c0c0c 8*1020304050
     <wire from="(1800,550)" to="(1860,550)"/>
     <wire from="(1800,730)" to="(1800,760)"/>
     <wire from="(1800,760)" to="(1920,760)"/>
+    <wire from="(1820,590)" to="(1820,600)"/>
+    <wire from="(1820,590)" to="(1850,590)"/>
     <wire from="(1840,1000)" to="(1840,1050)"/>
-    <wire from="(1840,620)" to="(1860,620)"/>
-    <wire from="(1850,640)" to="(1850,690)"/>
-    <wire from="(1850,640)" to="(1860,640)"/>
+    <wire from="(1840,620)" to="(1920,620)"/>
+    <wire from="(1850,590)" to="(1850,800)"/>
+    <wire from="(1850,800)" to="(2250,800)"/>
     <wire from="(1900,560)" to="(1910,560)"/>
-    <wire from="(1900,630)" to="(1920,630)"/>
     <wire from="(1910,540)" to="(1910,560)"/>
     <wire from="(1910,540)" to="(1930,540)"/>
     <wire from="(1910,950)" to="(1910,1040)"/>
-    <wire from="(1920,550)" to="(1920,630)"/>
+    <wire from="(1920,550)" to="(1920,620)"/>
     <wire from="(1920,550)" to="(1930,550)"/>
     <wire from="(1930,1050)" to="(1950,1050)"/>
     <wire from="(1930,360)" to="(2020,360)"/>

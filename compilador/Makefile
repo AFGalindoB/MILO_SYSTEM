@@ -39,6 +39,9 @@ test_flags:
 test_pc:
 	make -f makefiles/Makefile.compilacion test_pc
 
+test_gpu_hello_world:
+	make -f makefiles/Makefile.compilacion test_gpu_hello_world
+
 test_gpu_scroll:
 	make -f makefiles/Makefile.compilacion test_gpu_scroll
 
