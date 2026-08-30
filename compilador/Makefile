@@ -39,8 +39,11 @@ test_flags:
 test_pc:
 	make -f makefiles/Makefile.compilacion test_pc
 
-test_gpu:
-	make -f makefiles/Makefile.compilacion test_gpu
+test_gpu_scroll:
+	make -f makefiles/Makefile.compilacion test_gpu_scroll
+
+test_gpu_lorem_ipsum:
+	make -f makefiles/Makefile.compilacion test_gpu_lorem_ipsum
 
 test_inputs:
 	make -f makefiles/Makefile.compilacion test_inputs

@@ -9,6 +9,8 @@ SRC_CORE = $(SRC_DIR)/lexer/lexer.c \
            $(SRC_DIR)/helpers/escritor_rom.c \
            $(SRC_DIR)/helpers/compilador_helper.c
 
+GPU_HELPERS = $(SRC_DIR)/helpers/compile_text.c
+
 all: test_movi test_movimiento_general test_alu test_flags test_pc test_gpu test_inputs
 
 test_movi: $(SRC_DIR)/tests/tests_compilacion/test_movi.c $(SRC_CORE)
@@ -26,8 +28,11 @@ test_flags: $(SRC_DIR)/tests/tests_compilacion/test_flags.c $(SRC_CORE)
 test_pc: $(SRC_DIR)/tests/tests_compilacion/test_pc.c $(SRC_CORE)
 	$(CC) $(CFLAGS) $^ -o $(SRC_DIR)/test_pc_exec
 
-test_gpu: $(SRC_DIR)/tests/tests_compilacion/test_gpu.c $(SRC_CORE)
-	$(CC) $(CFLAGS) $^ -o $(SRC_DIR)/test_gpu_exec
+test_gpu_scroll: $(SRC_DIR)/tests/tests_compilacion/tests_gpu/test_scrolling.c $(SRC_CORE)
+	$(CC) $(CFLAGS) $^ -o $(SRC_DIR)/test_gpu_scroll_exec
+
+test_gpu_lorem_ipsum: $(SRC_DIR)/tests/tests_compilacion/tests_gpu/test_lorem_ipsum.c $(SRC_CORE)  $(GPU_HELPERS)
+	$(CC) $(CFLAGS) $^ -o $(SRC_DIR)/test_gpu_lorem_ipsum_exec
 
 test_inputs: $(SRC_DIR)/tests/tests_compilacion/test_inputs.c $(SRC_CORE)
 	$(CC) $(CFLAGS) $^ -o $(SRC_DIR)/test_inputs_exec

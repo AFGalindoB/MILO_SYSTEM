@@ -87,7 +87,7 @@ int compilar_y_exportar(const char* nombre_archivo, const char* codigo_fuente) {
 
     contador_errores = 0;
 
-    PalabraROM programa_rom[256];
+    PalabraROM programa_rom[MAX_LINEA];
     uint32_t contador_instrucciones = 0;
 
     // Búfer local para recibir las microinstrucciones generadas por el encoder (ej. RET expande a 2)
@@ -122,8 +122,8 @@ int compilar_y_exportar(const char* nombre_archivo, const char* codigo_fuente) {
         int micros_generadas = codificar_instruccion(&instr, buffer_temporal);
 
         for (int i = 0; i < micros_generadas; i++) {
-            if (contador_instrucciones >= 256) {
-                printf("⚠️ [ERROR COMPILADOR]: Se ha excedido el límite de 256 instrucciones físicas de la ROM.\n");
+            if (contador_instrucciones >= MAX_LINEA) {
+                printf("⚠️ [ERROR COMPILADOR]: Se ha excedido el límite de %d instrucciones físicas de la ROM.\n", MAX_LINEA);
                 contador_errores++;
                 break;
             }

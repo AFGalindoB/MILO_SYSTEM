@@ -5,6 +5,7 @@
 
 #define MAX_ETIQUETAS 200
 #define TAMANO_NOMBRE_ETIQUETA 64
+#define MAX_LINEA 5000
 
 typedef struct {
     char nombre[TAMANO_NOMBRE_ETIQUETA];

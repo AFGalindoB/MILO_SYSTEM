@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "../../helpers/compilador_helper.h"
+#include "../../../helpers/compilador_helper.h"
 
 int main() {
     // Código de Milo ASM para escribir "HOLA MUNDO" en el Tile Buffer de la GPU
@@ -31,7 +31,7 @@ int main() {
     printf("   🔥 TEST: COMPILACIÓN GPU - HOLA MUNDO CON SCROLL 🔥 \n");
     printf("====================================================================\n\n");
 
-    int resultado = compilar_y_exportar("test_gpu.txt", codigo_prueba);
+    int resultado = compilar_y_exportar("test_gpu_scroll.txt", codigo_prueba);
 
     printf("====================================================================\n");
     return resultado;
