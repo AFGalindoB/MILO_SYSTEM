@@ -8,9 +8,6 @@ typedef enum {
     INSTR_NOP,
 
     INSTR_MOV,
-    INSTR_MOVI,
-    INSTR_LOAD,
-    INSTR_STORE,
     
     INSTR_ADD,
     INSTR_SUB,
@@ -35,29 +32,24 @@ typedef enum {
     INSTR_JNN,
     INSTR_JV,
     INSTR_JNV,
-    INSTR_WAIT,
 
     INSTR_DESCONOCIDA
 } TipoInstruccion;
 
 typedef enum {
     FORMATO_DESCONOCIDO,
-    FORMATO_SIN_OPERANDOS,  // NOP, RET, STOP
+    FORMATO_SIN_OPERANDOS,  // NOP, RET
     FORMATO_SALTO,          // JMP, JZ, JNZ, CALL...
     FORMATO_MOV,            // MOV
-    FORMATO_MOVI,           // MOVI
-    FORMATO_LOAD,           // LOAD
-    FORMATO_STORE,          // STORE
     FORMATO_ALU_UNARIO,     // NOT
     FORMATO_ALU_BINARIO     // ADD, SUB, AND, OR, XOR, ADC, SBC, SHL, SHR, CMP
 } FormatoInstruccion;
 
 typedef enum {
     OPERANDO_NULO = 0,
-    OPERANDO_REG_RW,   // Registros R0 - R15 (valor: 0 - 15)
-    OPERANDO_REG_RO,   // RINPT (valor: ID de RINPT)
-    OPERANDO_REG_WO,   // TBUF, SCROLL (valor: ID de TBUF/SCROLL)
-    OPERANDO_INMEDIATO // Literales o Direcciones (valor: uint32_t directo)
+    OPERANDO_REG,          // Registros R0 - R15 (valor: 0 - 15)
+    OPERANDO_INMEDIATO,    // Literales o Direcciones (#n)
+    OPERANDO_RAM,          // 'RAM' simple (utiliza la dirección ya cargada en MAR)
 } TipoOperando;
 
 typedef struct {
@@ -71,13 +63,16 @@ typedef struct {
 
     uint32_t linea;
 
+    Operando MAR_Control;
+
     uint8_t tiene_modificador_f; // 1 si incluye .F, 0 en otro caso
 
-    // Destinos fijos: [0] = RW (Rd), [1] = WO (TBUF/SCROLL)
-    Operando destino[2];
+    Operando destino;
 
-    // Fuentes fijas: [0] = Primera fuente, [1] = Segunda fuente
     Operando fuente[2];
+    Operando inmediato; // Payload de 24 bits
+
+
 } InstruccionIR;
 
 #define MAX_ERRORES 20

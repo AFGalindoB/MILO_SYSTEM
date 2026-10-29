@@ -111,7 +111,7 @@ Token obtener_siguiente_token(void) {
             return crear_token(TOKEN_MODIFICADOR, buffer, 0, l_start, c_start);
         }
 
-        // 6. Procesamiento de palabras (Registros RW/RO/WO o Identificadores generales)
+        // 6. Procesamiento de palabras (Registros o Identificadores generales)
         if (isalpha((unsigned char)c) || c == '_') {
             char buffer[32] = {0};
             int i = 0;
@@ -123,25 +123,20 @@ Token obtener_siguiente_token(void) {
 
             // Validación de Registros (Ej: R0 - R15)
             if (buffer[0] == 'R' && isdigit((unsigned char)buffer[1])) {
-                uint32_t num_reg = atoi(&buffer[1]);
-                if (num_reg <= 15) {
-                    return crear_token(TOKEN_REGISTRO_RW, buffer, num_reg, l_start, c_start);
+                char* ptr_fin;
+                long num_reg = strtol(&buffer[1], &ptr_fin, 10);
+                
+                // Es un registro válido SOLO si se consumieron todos los caracteres hasta el final (\0)
+                if (*ptr_fin == '\0' && num_reg >= 0 && num_reg <= 15) {
+                    return crear_token(TOKEN_REGISTRO, buffer, (uint32_t)num_reg, l_start, c_start);
                 }
             }
 
-            if (strcmp(buffer, "RINPT") == 0) {
-                return crear_token(TOKEN_REGISTRO_RO, buffer, REG_RO_RINPT, l_start, c_start);
-            }
-
-            // C) Registros de Solo Escritura (WO): TBUF, SCROLL
-            if (strcmp(buffer, "TBUF") == 0) {
-                return crear_token(TOKEN_REGISTRO_WO, buffer, REG_WO_TBUF, l_start, c_start);
-            }
-            if (strcmp(buffer, "SCROLL") == 0) {
-                return crear_token(TOKEN_REGISTRO_WO, buffer, REG_WO_SCROLL, l_start, c_start);
+            if (strcmp(buffer, "RAM") == 0) {
+                return crear_token(TOKEN_RAM, buffer, 0, l_start, c_start);
             }
             
-            // Si empieza por letras pero no es un registro válido, es un Identificador
+            // Si no cumplió la condición exacta (ej. R15ABC o R99), es un IDENTIFICADOR estándar
             return crear_token(TOKEN_IDENTIFICADOR, buffer, 0, l_start, c_start);
         }
 
@@ -185,29 +180,7 @@ Token obtener_siguiente_token(void) {
             }
         }
 
-        // 8. Números puros (Direcciones de memoria directas o literales)
-        if (isdigit((unsigned char)c)) {
-            char buffer[32] = {0};
-            int i = 0;
-
-            if (c == '0' && (peek_offset(1) == 'x' || peek_offset(1) == 'X')) {
-                buffer[i++] = avanzar_cursor_codigo(); // '0'
-                buffer[i++] = avanzar_cursor_codigo(); // 'x'
-                while (isxdigit((unsigned char)peek()) && i < 31) {
-                    buffer[i++] = avanzar_cursor_codigo();
-                }
-                uint32_t val = (uint32_t)strtoul(buffer, NULL, 16);
-                return crear_token(TOKEN_NUMERO, buffer, val, l_start, c_start);
-            } else {
-                while (isdigit((unsigned char)peek()) && i < 31) {
-                    buffer[i++] = avanzar_cursor_codigo();
-                }
-                uint32_t val = (uint32_t)strtoul(buffer, NULL, 10);
-                return crear_token(TOKEN_NUMERO, buffer, val, l_start, c_start);
-            }
-        }
-
-        // 9. Error Léxico: El carácter actual no encaja en ningún autómata
+        // 8. Error Léxico: El carácter actual no encaja en ningún autómata
         char err_lex[2] = { avanzar_cursor_codigo(), '\0' };
         return crear_token(TOKEN_ERROR, err_lex, 0, l_start, c_start);
     }
@@ -254,11 +227,9 @@ int obtener_linea_de_tokens(Token* linea_tokens) {
 const char* tipo_token_a_string(TipoToken tipo) {
     switch (tipo) {
         case TOKEN_IDENTIFICADOR: return "IDENTIFICADOR";
-        case TOKEN_REGISTRO_RW:   return "REGISTRO_RW";
-        case TOKEN_REGISTRO_RO:   return "REGISTRO_RO";
-        case TOKEN_REGISTRO_WO:   return "REGISTRO_WO";
+        case TOKEN_REGISTRO:      return "REGISTRO";
+        case TOKEN_RAM:           return "RAM";
         case TOKEN_INMEDIATO:     return "INMEDIATO";
-        case TOKEN_NUMERO:        return "NUMERO";
         case TOKEN_COMA:          return "COMA";
         case TOKEN_CORCHETE_I:    return "CORCHETE_IZQ";
         case TOKEN_CORCHETE_D:    return "CORCHETE_DER";

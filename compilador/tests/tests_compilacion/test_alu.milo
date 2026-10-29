@@ -1,0 +1,110 @@
+; ============================================================
+; TEST ALU — OPERACIONES Y COMBINACIONES DE OPERANDOS
+; ============================================================
+
+; Preparación de operandos base
+MOV R0, #0x0A
+MOV R1, #0x03
+
+; ------------------------------------------------------------
+; Operaciones ALU con dos registros
+; ------------------------------------------------------------
+
+ADD R2, R0, R1         ; 0x0D = 0x0A + 0x03
+MOV [#0x00], R2        ; RAM[0] = resultado de ADD
+
+ADC R3, R1, R0         ; 0x0D = 0x03 + 0x0A + 0
+MOV [#0x01], R3        ; RAM[1] = resultado de ADC
+
+SUB R4, R0, R1         ; 0x07 = 0x0A - 0x03
+MOV [#0x02], R4        ; RAM[2] = resultado de SUB
+
+SBC R5, R1, R0         ; 0xFFFFF9 = 0x03 - 0x0A - 0
+MOV [#0x03], R5        ; RAM[3] = resultado de SBC
+
+AND R6, R1, R0         ; 0x02 = 0x03 AND 0x0A
+MOV [#0x04], R6        ; RAM[4] = resultado de AND
+
+OR R7, R0, R1          ; 0x0B = 0x0A OR 0x03
+MOV [#0x05], R7        ; RAM[5] = resultado de OR
+
+XOR R8, R1, R0         ; 0x09 = 0x03 XOR 0x0A
+MOV [#0x06], R8        ; RAM[6] = resultado de XOR
+
+SHL R9, R1, R0         ; 0xC00 = 0x03 << 0x0A
+MOV [#0x07], R9        ; RAM[7] = resultado de SHL
+
+SHR R10, R0, R1        ; 0x01 = 0x0A >> 0x03
+MOV [#0x08], R10       ; RAM[8] = resultado de SHR
+
+NOT R11, R1            ; 0xFFFFFC = NOT 0x000003 (24 bits)
+MOV [#0x09], R11       ; RAM[9] = resultado de NOT
+
+
+; ------------------------------------------------------------
+; Operandos inmediatos
+; ------------------------------------------------------------
+
+ADD R12, #0x0A, R1     ; 0x0D = 0x0A + 0x03
+MOV [#0x0A], R12       ; RAM[10] = inmediato + registro
+
+ADD R13, R1, #0x03     ; 0x06 = 0x03 + 0x03
+MOV [#0x0B], R13       ; RAM[11] = registro + inmediato
+
+ADD R14, #0x05, #0x05  ; 0x0A = 0x05 + 0x05
+MOV [#0x0C], R14       ; RAM[12] = inmediato + inmediato
+
+
+; ------------------------------------------------------------
+; RAM como operando fuente
+; ------------------------------------------------------------
+
+ADD R15, R1, [R0]      ; 0x10 = 0x03 + RAM[0x0A]
+MOV [#0x0D], R15       ; RAM[13] = resultado
+
+ADD R15, [R0], R1      ; 0x10 = RAM[0x0A] + 0x03
+MOV [#0x0E], R15       ; RAM[14] = resultado
+
+ADD R15, [R0], RAM     ; 0x1A = RAM[0x0A] + RAM[0x0A]
+MOV [#0x0F], R15       ; RAM[15] = resultado
+
+ADD R15, #0x03, [R0]   ; 0x10 = 0x03 + RAM[0x0A]
+MOV [#0x10], R15       ; RAM[16] = resultado
+
+ADD R15, [R0], #0x03   ; 0x10 = RAM[0x0A] + 0x03
+MOV [#0x11], R15       ; RAM[17] = resultado
+
+
+; ------------------------------------------------------------
+; Resultado de ALU directamente en RAM
+; ------------------------------------------------------------
+
+ADD [#0x12], R1, R2    ; 0x10 = 0x03 + 0x0D
+
+MOV R2, #0x13
+ADD [R2], #0x03, R1    ; 0x06 = 0x03 + 0x03
+
+MOV R2, #0x14
+ADD [R2], R1, #0x03    ; 0x06 = 0x03 + 0x03
+
+ADD [#0x15], #0x15, #0x15 ; 0x2A = 0x15 + 0x15
+
+MOV R2, #0x16
+ADD [R2], RAM, R1      ; RAM[0x16] + 0x03 | 0x03 = 0x00 + 0x03
+
+MOV R2, #0x17
+ADD [R2], R1, RAM      ; 0x03 + RAM[0x17] | 0x03 = 0x03 + 0x00
+
+ADD [#0x18], #0x18, RAM ; 0x18 + RAM[0x18] | 0x18 = 0x00 + 0x18
+
+ADD [#0x19], RAM, #0x19 ; RAM[0x19] + 0x19 | 0x019 = 0x00 + 0x19
+
+MOV R2, #0x1A
+ADD [R2], RAM, RAM      ; RAM[0x1A] * 2 | 0x00 + 0x00 = 0x00
+
+
+; ------------------------------------------------------------
+; CMP — comparación mediante resta sin almacenar resultado
+; ------------------------------------------------------------
+
+CMP [R0], RAM           ; 0x00 = RAM[0x0A] - RAM[0x0A]

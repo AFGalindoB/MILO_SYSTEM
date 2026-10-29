@@ -1,0 +1,155 @@
+
+; ================================================
+; MILO ISA 2.0.0 - TEST DE FLAGS Y PROGRAM COUNTER
+; RAM[0x10] = Carry
+; RAM[0x11] = Zero
+; RAM[0x12] = Negative
+; RAM[0x13] = Overflow
+; Resultado: 1 = PASS, 0 = FAIL
+; ================================================
+
+; ---------------- MAIN ----------------
+MAIN:
+    CALL TEST_C
+    CALL TEST_Z
+    CALL TEST_N
+    CALL TEST_V
+
+FIN:
+    JMP FIN
+
+
+; ================================================
+; TEST CARRY
+; Activa:   0xFFFFFF + 1 -> C = 1
+; Inactiva: 1 + 1       -> C = 0
+; ================================================
+TEST_C:
+    MOV R0, #16777215
+    MOV R1, #1
+    ADD.F R2, R0, R1
+    JC C_ACTIVA_OK
+    JMP C_FALLO
+
+C_ACTIVA_OK:
+    JNC C_FALLO
+
+    MOV R0, #1
+    MOV R1, #1
+    ADD.F R2, R0, R1
+    JNC C_INACTIVA_OK
+    JMP C_FALLO
+
+C_INACTIVA_OK:
+    JC C_FALLO
+    MOV R15, #1
+    JMP C_GUARDAR
+
+C_FALLO:
+    MOV R15, #0
+
+C_GUARDAR:
+    MOV [#0x10], R15
+    RET
+
+
+; ================================================
+; TEST ZERO
+; Activa:   5 - 5 -> Z = 1
+; Inactiva: 5 - 3 -> Z = 0
+; ================================================
+TEST_Z:
+    MOV R0, #5
+    MOV R1, #5
+    SUB.F R2, R0, R1
+    JZ Z_ACTIVA_OK
+    JMP Z_FALLO
+
+Z_ACTIVA_OK:
+    JNZ Z_FALLO
+
+    MOV R0, #5
+    MOV R1, #3
+    SUB.F R2, R0, R1
+    JNZ Z_INACTIVA_OK
+    JMP Z_FALLO
+
+Z_INACTIVA_OK:
+    JZ Z_FALLO
+    MOV R15, #1
+    JMP Z_GUARDAR
+
+Z_FALLO:
+    MOV R15, #0
+
+Z_GUARDAR:
+    MOV [#0x11], R15
+    RET
+
+
+; ================================================
+; TEST NEGATIVE
+; Activa:   2 - 5 -> N = 1
+; Inactiva: 5 - 2 -> N = 0
+; ================================================
+TEST_N:
+    MOV R0, #2
+    MOV R1, #5
+    SUB.F R2, R0, R1
+    JN N_ACTIVA_OK
+    JMP N_FALLO
+
+N_ACTIVA_OK:
+    JNN N_FALLO
+
+    MOV R0, #5
+    MOV R1, #2
+    SUB.F R2, R0, R1
+    JNN N_INACTIVA_OK
+    JMP N_FALLO
+
+N_INACTIVA_OK:
+    JN N_FALLO
+    MOV R15, #1
+    JMP N_GUARDAR
+
+N_FALLO:
+    MOV R15, #0
+
+N_GUARDAR:
+    MOV [#0x12], R15
+    RET
+
+
+; ================================================
+; TEST OVERFLOW
+; Activa:   0x7FFFFF + 1 -> V = 1
+; Inactiva: 1 + 1       -> V = 0
+; ================================================
+TEST_V:
+    MOV R0, #8388607
+    MOV R1, #1
+    ADD.F R2, R0, R1
+    JV V_ACTIVA_OK
+    JMP V_FALLO
+
+V_ACTIVA_OK:
+    JNV V_FALLO
+
+    MOV R0, #1
+    MOV R1, #1
+    ADD.F R2, R0, R1
+    JNV V_INACTIVA_OK
+    JMP V_FALLO
+
+V_INACTIVA_OK:
+    JV V_FALLO
+    MOV R15, #1
+    JMP V_GUARDAR
+
+V_FALLO:
+    MOV R15, #0
+
+V_GUARDAR:
+    MOV [#0x13], R15
+    RET

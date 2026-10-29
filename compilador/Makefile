@@ -1,62 +1,72 @@
 # ====================================================================
-#              Makefile Puente Principal - CPU MILO
+#              Makefile Principal - CPU MILO
 # ====================================================================
 
-# Ejecución por defecto: compila absolutamente todos los tests del proyecto
-all: tests compilacion
+CC = gcc
 
-# --------------------------------------------------------------------
-# 🧪 Grupo 1: Tests del Compilador (Lexer y Parser)
-# --------------------------------------------------------------------
+CFLAGS = -Wall -Wextra -g
+
+# Directorio donde está este Makefile.
+# Se obtiene independientemente del directorio desde donde se invoque make.
+COMPILADOR_DIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
+
+# La ruta queda embebida en el ejecutable milo durante la compilación.
+MILO_DEFINE = -DMILO_COMPILADOR_DIR=\"$(COMPILADOR_DIR)\"
+
+
+# ====================================================================
+#                    FUENTES DEL COMPILADOR
+# ====================================================================
+
+SRC_COMPILADOR = \
+	main.c \
+	lexer/lexer.c \
+	parser/parser.c \
+	encoder/encoder.c \
+	helpers/compilador_helper.c \
+	helpers/compile_text.c \
+	helpers/escritor_rom.c \
+	helpers/tag_manager.c
+
+
+# ====================================================================
+#                         EJECUTABLE MILO
+# ====================================================================
+
+milo: $(SRC_COMPILADOR)
+	$(CC) $(CFLAGS) $(MILO_DEFINE) $^ -o $@
+
+
+# ====================================================================
+#                    TESTS DEL COMPILADOR
+# ====================================================================
+
 tests:
-	make -f makefiles/Makefile.tests
+	$(MAKE) test_lexer
+	$(MAKE) test_parser
+
 
 test_lexer:
-	make -f makefiles/Makefile.tests test_lexer
+	$(CC) $(CFLAGS) \
+		lexer/lexer.c \
+		tests/test_lexer.c \
+		-o test_lexer_exec
+
 
 test_parser:
-	make -f makefiles/Makefile.tests test_parser
+	$(CC) $(CFLAGS) \
+		lexer/lexer.c \
+		parser/parser.c \
+		helpers/tag_manager.c \
+		tests/test_parser.c \
+		-o test_parser_exec
 
 
-# --------------------------------------------------------------------
-# ⚙️ Grupo 2: Tests de Compilación a ROM Física
-# --------------------------------------------------------------------
-compilacion:
-	make -f makefiles/Makefile.compilacion
+# ====================================================================
+#                           LIMPIEZA
+# ====================================================================
 
-test_movi:
-	make -f makefiles/Makefile.compilacion test_movi
-
-test_movimiento_general:
-	make -f makefiles/Makefile.compilacion test_movimiento_general
-
-test_alu:
-	make -f makefiles/Makefile.compilacion test_alu
-
-test_flags:
-	make -f makefiles/Makefile.compilacion test_flags
-
-test_pc:
-	make -f makefiles/Makefile.compilacion test_pc
-
-test_gpu_hello_world:
-	make -f makefiles/Makefile.compilacion test_gpu_hello_world
-
-test_gpu_scroll:
-	make -f makefiles/Makefile.compilacion test_gpu_scroll
-
-test_gpu_lorem_ipsum:
-	make -f makefiles/Makefile.compilacion test_gpu_lorem_ipsum
-
-test_inputs:
-	make -f makefiles/Makefile.compilacion test_inputs
-
-test_etiquetas:
-	make -f makefiles/Makefile.compilacion test_etiquetas
-
-# --------------------------------------------------------------------
-# 🧹 Limpieza General
-# --------------------------------------------------------------------
 clean:
-	make -f makefiles/Makefile.tests clean
-	make -f makefiles/Makefile.compilacion clean
+	rm -f milo
+	rm -f test_lexer_exec
+	rm -f test_parser_exec

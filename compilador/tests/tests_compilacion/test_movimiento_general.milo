@@ -1,0 +1,19 @@
+; ---------- Movimiento general ----------
+MOV R0, #5          ; R0 = 5
+MOV R2, #2          ; R2 = 2
+MOV R1, R0          ; R1 = 5
+
+; ---------- Registro -> RAM ----------
+MOV [#1], R0        ; RAM[1] = 5
+MOV [R0], R1        ; RAM[5] = 5
+
+; ---------- Inmediato -> RAM ----------
+MOV [#3], #3        ; RAM[3] = 3
+MOV [R2], #7        ; RAM[2] = 7
+
+; ---------- RAM -> Registro ----------
+MOV R3, [#3]        ; R3 = 3
+MOV R4, [R0]        ; R4 = 5
+
+; ---------- RAM -> RAM ----------
+MOV [#3], RAM       ; RAM[3] = RAM[3]

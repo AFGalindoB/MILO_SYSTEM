@@ -1,0 +1,62 @@
+{
+  "name": "Milo",
+  "scopeName": "source.milo",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#labels" },
+    { "include": "#instructions" },
+    { "include": "#modifiers" },
+    { "include": "#registers" },
+    { "include": "#immediates" },
+    { "include": "#memory" }
+  ],
+  "repository": {
+    "comments": {
+      "name": "comment.line.semicolon.milo",
+      "match": ";.*$"
+    },
+    "labels": {
+      "name": "entity.name.label.milo",
+      "match": "^\\s*[A-Za-z_][A-Za-z0-9_]*\\s*:"
+    },
+    "instructions": {
+      "name": "keyword.control.milo",
+      "match": "(?i)\\b(MOV|ADD|ADC|SUB|SBC|AND|OR|XOR|SHL|SHR|CMP|NOT|CALL|RET|JMP|JZ|JNZ|JC|JNC|JN|JNN|JV|JNV)\\b"
+    },
+    "modifiers": {
+      "name": "storage.modifier.milo",
+      "match": "(?i)\\.F\\b"
+    },
+    "registers": {
+      "name": "variable.other.register.milo",
+      "match": "(?i)\\bR([0-9]|1[0-5])\\b"
+    },
+    "immediates": {
+      "name": "constant.numeric.milo",
+      "match": "#(0[xX][0-9a-fA-F]+|[0-9]+)\\b"
+    },
+    "memory": {
+      "patterns": [
+        {
+          "name": "meta.memory-access.milo",
+          "begin": "\\[",
+          "end": "\\]",
+          "beginCaptures": {
+            "0": { "name": "punctuation.definition.memory.begin.milo" }
+          },
+          "endCaptures": {
+            "0": { "name": "punctuation.definition.memory.end.milo" }
+          },
+          "patterns": [
+            { "include": "#registers" },
+            { "include": "#immediates" }
+          ]
+        },
+        {
+          "name": "keyword.other.memory.milo",
+          "match": "(?i)\\bRAM\\b"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "name": "milo-language",
+  "displayName": "Milo Assembly",
+  "description": "Syntax highlighting for Milo ISA (versión 2.0.0)",
+  "version": "1.0.0",
+  "publisher": "milo",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "milo",
+        "aliases": [
+          "Milo",
+          "milo",
+          "Milo Assembly"
+        ],
+        "extensions": [
+          ".milo",
+          ".s",
+          ".asm"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "milo",
+        "scopeName": "source.milo",
+        "path": "./syntaxes/milo.tmLanguage.json"
+      }
+    ]
+  }
+}

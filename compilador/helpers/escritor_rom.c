@@ -1,45 +1,107 @@
 #include "escritor_rom.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <errno.h>
+#include <inttypes.h>
 
-void exportar_a_txt_rom(const char* nombre_archivo, PalabraROM* palabras, uint32_t cantidad_instrucciones) {
-    // 1. Intentar crear la carpeta base "../compilaciones" con permisos de lectura/escritura/ejecución (0777)
-    if (mkdir("../compilaciones", 0777) == -1) {
-        if (errno != EEXIST) {
-            printf("❌ ERROR CRÍTICO: No se pudo crear el directorio base '../compilaciones'.\n");
-            exit(EXIT_FAILURE);
-        }
-    }
+#define MAX_RUTA 512
 
-    // 2. Intentar crear la subcarpeta "instrucciones" dentro de compilaciones
-    if (mkdir("../compilaciones/instrucciones", 0777) == -1) {
-        if (errno != EEXIST) {
-            printf("❌ ERROR CRÍTICO: No se pudo crear el subdirectorio '../compilaciones/instrucciones'.\n");
-            exit(EXIT_FAILURE);
-        }
-    }
+static char directorio_compilaciones[MAX_RUTA] = {0};
 
-
-    char ruta_completa[512] = {0};
-    sprintf(ruta_completa, "../compilaciones/instrucciones/%s", nombre_archivo);
-
-    // Abrir el archivo en modo escritura de texto
-    FILE* archivo = fopen(ruta_completa, "w");
-    if (archivo == NULL) {
-        printf("❌ ERROR CRÍTICO: No se pudo crear el archivo en la ruta final '%s'.\n", ruta_completa);
+void establecer_directorio_compilaciones(const char* directorio)
+{
+    if (directorio == NULL) {
+        fprintf(stderr,
+                "❌ ERROR: Directorio de compilaciones inválido.\n");
         exit(EXIT_FAILURE);
     }
 
-    // Recorrer secuencialmente el mapa de memoria del programa
-    for (uint32_t i = 0; i < cantidad_instrucciones; i++) {
-        // Imprimir CW (Bits 63:32) seguido inmediatamente de IMM (Bits 31:0) sin espacios, terminando con salto de línea
-        fprintf(archivo, "%08X%08X\n", palabras[i].control_word, palabras[i].immediate);
+    int resultado = snprintf(
+        directorio_compilaciones,
+        sizeof(directorio_compilaciones),
+        "%s",
+        directorio
+    );
+
+    if (resultado < 0 || resultado >= MAX_RUTA) {
+        fprintf(stderr,
+                "❌ ERROR: La ruta del directorio de compilaciones es demasiado larga.\n");
+        exit(EXIT_FAILURE);
+    }
+}
+
+
+void exportar_a_txt_rom(
+    const char* nombre_archivo,
+    uint64_t* palabras,
+    uint32_t cantidad_instrucciones
+)
+{
+    if (directorio_compilaciones[0] == '\0') {
+        fprintf(stderr,
+                "❌ ERROR: No se ha establecido el directorio de compilaciones.\n");
+        exit(EXIT_FAILURE);
     }
 
-    // Cerrar el descriptor de archivo para asegurar el vaciado del buffer de disco
+    char directorio_instrucciones[MAX_RUTA] = {0};
+
+    snprintf(
+        directorio_instrucciones,
+        sizeof(directorio_instrucciones),
+        "%s/instrucciones",
+        directorio_compilaciones
+    );
+
+    // Crear directorio base
+    if (mkdir(directorio_compilaciones, 0777) == -1) {
+        if (errno != EEXIST) {
+            fprintf(stderr,
+                    "❌ ERROR: No se pudo crear el directorio '%s'.\n",
+                    directorio_compilaciones);
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    // Crear directorio de instrucciones
+    if (mkdir(directorio_instrucciones, 0777) == -1) {
+        if (errno != EEXIST) {
+            fprintf(stderr,
+                    "❌ ERROR: No se pudo crear el directorio '%s'.\n",
+                    directorio_instrucciones);
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    char ruta_completa[MAX_RUTA] = {0};
+
+    snprintf(
+        ruta_completa,
+        sizeof(ruta_completa),
+        "%s/%s",
+        directorio_instrucciones,
+        nombre_archivo
+    );
+
+    FILE* archivo = fopen(ruta_completa, "w");
+
+    if (archivo == NULL) {
+        fprintf(stderr,
+                "❌ ERROR: No se pudo crear el archivo '%s'.\n",
+                ruta_completa);
+        exit(EXIT_FAILURE);
+    }
+
+    for (uint32_t i = 0; i < cantidad_instrucciones; i++) {
+        fprintf(archivo, "*%016" PRIX64 "\n", palabras[i]);
+    }
+
     fclose(archivo);
-    printf("💾 Compilación exitosa exportada a: %s\n", ruta_completa);
+
+    printf(
+        "💾 Compilación exportada a: %s\n",
+        ruta_completa
+    );
 }

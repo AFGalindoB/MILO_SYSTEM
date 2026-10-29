@@ -3,21 +3,7 @@
 
 #include <stdint.h>
 
-#define MAX_ETIQUETAS 200
-#define TAMANO_NOMBRE_ETIQUETA 64
 #define MAX_LINEA 5000
-
-typedef struct {
-    char nombre[TAMANO_NOMBRE_ETIQUETA];
-    uint32_t direccion;
-} Etiqueta ;
-
-typedef struct {
-    Etiqueta lista[MAX_ETIQUETAS];
-    int cantidad;
-} TablaSimbolos;
-
-int32_t buscar_etiqueta(const char* nombre);
 
 /**
  * @brief Compila una cadena de texto con código fuente Milo ASM, la codifica a microcódigo

@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
-#include "../helpers/compilador_helper.h"
+#include "../helpers/tag_manager.h"
 
 uint32_t contador_errores = 0;
 static RegistroError historial_errores[MAX_ERRORES];
@@ -28,33 +28,120 @@ static int match_lexema(int offset, const char* lexema) {
     return strcmp(linea_tokens[offset].lexema, lexema) == 0;
 }
 
-static int contar_tokens_de_tipo(TipoToken tipo) {
-    int conteo = 0;
+static int comprobar_exceso_token(TipoToken tipo_buscado) {
+    int contador = 0;
+    
     for (int i = 0; i < total_tokens; i++) {
-        if (linea_tokens[i].tipo == tipo) {
-            conteo++;
+        if (linea_tokens[i].tipo == tipo_buscado) {
+            contador++;
+            if (contador > 1) {
+                return 1; // Se encontró más de 1
+            }
         }
     }
-    return conteo;
+    
+    return 0; // Cantidad permitida (0 o 1)
 }
 
-static Operando token_a_operando(Token t) {
+static Operando consumir_operando(InstruccionIR* ir, int* n) {
     Operando op;
-    op.valor = t.valor;
+    op.tipo = OPERANDO_NULO;
+    op.valor = 0;
 
-    switch (t.tipo) {
-        case TOKEN_REGISTRO_RW: op.tipo = OPERANDO_REG_RW; break;
-        case TOKEN_REGISTRO_RO: op.tipo = OPERANDO_REG_RO; break;
-        case TOKEN_REGISTRO_WO: op.tipo = OPERANDO_REG_WO; break;
-        case TOKEN_INMEDIATO:   
-        case TOKEN_NUMERO:      op.tipo = OPERANDO_INMEDIATO; break;
-        default:                op.tipo = OPERANDO_NULO; break;
+    if (*n >= total_tokens){
+        reportar_error(*n, TOKEN_EOF, "Se esperaba un operando (Registro, Inmediato o RAM) pero se alcanzó el final de la línea.");
+        return op;
+    } 
+
+    Token t = linea_tokens[*n];
+
+    // CASO 1: Registro directo (R0 - R15)
+    if (t.tipo == TOKEN_REGISTRO) {
+        op.tipo = OPERANDO_REG;
+        op.valor = t.valor;
+        (*n)++;
+        return op;
     }
+
+    // CASO 2: Inmediato directo (#n)
+    if (t.tipo == TOKEN_INMEDIATO) {
+        if (ir->inmediato.tipo == OPERANDO_INMEDIATO && ir->inmediato.valor != t.valor) {
+            reportar_error(*n, TOKEN_INMEDIATO, "Violación de ISA: No se permite declarar diferentes valores inmediatos (#n) en la misma instrucción.");
+            return op;
+        }
+        op.tipo = OPERANDO_INMEDIATO;
+        ir->inmediato.tipo = OPERANDO_INMEDIATO;
+        ir->inmediato.valor = t.valor;
+        (*n)++;
+        return op;
+    }
+
+    // CASO 3: Lexema 'RAM' aislado (Requiere MAR previamente establecido por un [...])
+    if (t.tipo == TOKEN_RAM) {
+        if (ir->MAR_Control.tipo == OPERANDO_NULO) {
+            reportar_error(*n, TOKEN_RAM, "Uso ilegal de 'RAM': No se puede usar 'RAM' como operando sin haber establecido la dirección previamente mediante '[...]'");
+            return op;
+        }
+
+        op.tipo = OPERANDO_RAM;
+        (*n)++;
+        return op;
+    }
+
+    // CASO 4: Direccionamiento explícito a RAM con corchetes [...]
+    if (t.tipo == TOKEN_CORCHETE_I) {
+        (*n)++; // Consumir '['
+
+        if (*n >= total_tokens) {
+            reportar_error(*n, TOKEN_CORCHETE_I, "Se esperaba un registro o inmediato dentro de los corchetes '[...]'");
+            return op;
+        }
+
+        if (match_tipo(*n, TOKEN_REGISTRO)) {
+            if (linea_tokens[*n].valor > 7) {
+                reportar_error(*n, TOKEN_REGISTRO, "Registro inválido dentro de '[...]'. Solo se permiten R0 a R7.");
+                return op;
+            }
+            ir->MAR_Control.tipo = OPERANDO_REG;
+            ir->MAR_Control.valor = linea_tokens[*n].valor;
+            (*n)++;
+        } 
+        else if (match_tipo(*n, TOKEN_INMEDIATO)) {
+            if (ir->inmediato.tipo == OPERANDO_INMEDIATO && ir->inmediato.valor != t.valor) {
+                reportar_error(*n, TOKEN_INMEDIATO, "Violación de ISA: No se permite declarar diferentes valores inmediatos (#n) en la misma instrucción.");
+                return op;
+            }
+            ir->MAR_Control.tipo = OPERANDO_INMEDIATO;
+            ir->inmediato.tipo = OPERANDO_INMEDIATO;
+            ir->inmediato.valor = linea_tokens[*n].valor;
+            (*n)++;
+        } 
+        else {
+            reportar_error(*n, linea_tokens[*n].tipo, "Dirección de memoria inválida. Se esperaba Rn o #n dentro de '[...]'");
+            return op;
+        }
+
+        // Cierre obligatorio de corchete
+        if (*n >= total_tokens || linea_tokens[*n].tipo != TOKEN_CORCHETE_D) {
+            reportar_error(*n, TOKEN_CORCHETE_D, "Se esperaba ']' al cerrar la referencia de dirección de memoria.");
+            return op;
+        }
+
+        (*n)++; // Consumir ']'
+
+        // Un direccionamiento [...] como operando equivale a acceder a la celda de memoria RAM
+        op.tipo = OPERANDO_RAM;
+        op.valor = 0;
+        return op;
+    }
+
+    // Si el token no calza con ninguna forma válida de operando
+    reportar_error(*n, t.tipo, "Operando no reconocido o sintaxis inválida ('%s')", t.lexema);
     return op;
 }
 
 static FormatoInstruccion obtener_formato_mnemonico(const char* lexema) {
-    if (strcmp(lexema, "NOP") == 0 || strcmp(lexema, "RET") == 0 || strcmp(lexema, "STOP") == 0)
+    if (strcmp(lexema, "NOP") == 0 || strcmp(lexema, "RET") == 0)
         return FORMATO_SIN_OPERANDOS;
     
     if (strcmp(lexema, "JMP") == 0 || strcmp(lexema, "JZ") == 0  || strcmp(lexema, "JNZ") == 0 ||
@@ -64,9 +151,6 @@ static FormatoInstruccion obtener_formato_mnemonico(const char* lexema) {
         return FORMATO_SALTO;
 
     if (strcmp(lexema, "MOV") == 0)   return FORMATO_MOV;
-    if (strcmp(lexema, "MOVI") == 0)  return FORMATO_MOVI;
-    if (strcmp(lexema, "LOAD") == 0)  return FORMATO_LOAD;
-    if (strcmp(lexema, "STORE") == 0) return FORMATO_STORE;
     if (strcmp(lexema, "NOT") == 0)   return FORMATO_ALU_UNARIO;
 
     if (strcmp(lexema, "ADD") == 0 || strcmp(lexema, "SUB") == 0 || strcmp(lexema, "AND") == 0 ||
@@ -120,6 +204,7 @@ void reportar_error(int offset_error, TipoToken tipo_error, const char* formato,
 
     if (contador_errores >= MAX_ERRORES) {
         printf("\n⚠️ Límite máximo de errores alcanzado (%d).\n", MAX_ERRORES);
+        emitir_informe_compilacion();
         exit(EXIT_FAILURE);
     }
 }
@@ -158,207 +243,114 @@ void emitir_informe_compilacion(void) {
     printf("====================================================================\n\n");
 }
 
-static uint8_t obtener_destinos_ortogonales(InstruccionIR* ir, int n) {
-    if (match_tipo(n, TOKEN_REGISTRO_WO)) {
-        ir->destino[1] = token_a_operando(linea_tokens[n]);
-        n++;
-
-        if (!match_tipo(n, TOKEN_COMA)) {
-            reportar_error(n, TOKEN_COMA, "Se esperaba ',' después del registro especial WO.");
-            return 0;
-        }
-        n++; // Consumir coma
-        
-        uint8_t fuentes_requeridas = 0;
-        if (ir->formato == FORMATO_MOV || ir->formato == FORMATO_ALU_UNARIO || ir->formato == FORMATO_LOAD) {
-            fuentes_requeridas = 1;
-        } else if (ir->formato == FORMATO_ALU_BINARIO) {
-            fuentes_requeridas = 2;
-        }
-
-        uint8_t registros_encontrados = contar_tokens_de_tipo(TOKEN_REGISTRO_RW) 
-                                      + contar_tokens_de_tipo(TOKEN_REGISTRO_RO);
-
-        if (match_tipo(n, TOKEN_REGISTRO_RW) && registros_encontrados > fuentes_requeridas) {
-            ir->destino[0] = token_a_operando(linea_tokens[n]);
-            
-            if (!match_tipo(n + 1, TOKEN_COMA)) {
-                reportar_error(n + 1, TOKEN_COMA, "Se esperaba una coma ',' después de Rd.");
-                return 0;
-            }
-            n += 2;
-        }
-
-    } else {
-        if (!match_tipo(n, TOKEN_REGISTRO_RW)) {
-            reportar_error(n, TOKEN_REGISTRO_RW, "Se esperaba un registro destino (Rd) válido.");
-            return 0;
-        }
-
-        if (!match_tipo(n + 1, TOKEN_COMA)) {
-            reportar_error(n + 1, TOKEN_COMA, "Se esperaba una coma ',' después del registro destino.");
-            return 0;
-        }
-
-        ir->destino[0] = token_a_operando(linea_tokens[n]);
-        n += 2;
-    }
-
-    return n; // Retornamos el índice del primer token después de los destinos ortogonales
-}
-
-static void parsear_formato_salto(InstruccionIR* ir, int n) {
-    if (match_tipo(n, TOKEN_IDENTIFICADOR)) {
-        int destino = buscar_etiqueta(linea_tokens[n].lexema);
+static void parsear_formato_salto(InstruccionIR* ir, int* n) {
+    if (match_tipo(*n, TOKEN_IDENTIFICADOR)) {
+        int destino = buscar_etiqueta(linea_tokens[*n].lexema);
         if (destino != -1) {
-            linea_tokens[n].tipo = TOKEN_INMEDIATO;
-            linea_tokens[n].valor = destino;
+            linea_tokens[*n].tipo = TOKEN_INMEDIATO;
+            linea_tokens[*n].valor = destino;
         }
     }
-    if (!match_tipo(n, TOKEN_INMEDIATO) && !match_tipo(n, TOKEN_NUMERO)) {
-        reportar_error(n, TOKEN_INMEDIATO, "Se esperaba una dirección o etiqueta para la instrucción de salto.");
+    if (!match_tipo(*n, TOKEN_INMEDIATO)) {
+        reportar_error(*n, TOKEN_INMEDIATO, "Se esperaba una dirección o etiqueta para la instrucción de salto.");
         return;
     }
-    ir->fuente[0] = token_a_operando(linea_tokens[n]);
+    // Consumir el inmediato y asignarlo al campo inmediato de la instrucción
+    consumir_operando(ir, n);
 }
 
-static void parsear_formato_store(InstruccionIR* ir, int n) {
-    // Capturar MDR (Registro fuente de datos)
-    if (!match_tipo(n, TOKEN_REGISTRO_RW) && !match_tipo(n, TOKEN_INMEDIATO) && !match_tipo(n, TOKEN_REGISTRO_RO)) {
-        reportar_error(n, TOKEN_REGISTRO_RW, "Se esperaba una fuente de datos (MDR) en STORE.");
-        return;
-    }
-    ir->fuente[0] = token_a_operando(linea_tokens[n]);
-
-    if (!match_tipo(n + 1, TOKEN_COMA)) {
-        reportar_error(n + 1, TOKEN_COMA, "Se esperaba una coma ',' después del registro MDR.");
-        return;
-    }
-    if (!match_tipo(n + 2, TOKEN_CORCHETE_I)) {
-        reportar_error(n + 2, TOKEN_CORCHETE_I, "Se esperaba abrir corchete '[' para la dirección del MAR.");
-        return;
-    }
-    if (!match_tipo(n + 3, TOKEN_REGISTRO_RW)) {
-        reportar_error(n + 3, TOKEN_REGISTRO_RW, "Se esperaba el registro de dirección (MAR) dentro de los corchetes.");
-        return;
-    }
-    ir->fuente[1] = token_a_operando(linea_tokens[n + 3]);
-
-    if (!match_tipo(n + 4, TOKEN_CORCHETE_D)) {
-        reportar_error(n + 4, TOKEN_CORCHETE_D, "Se esperaba cerrar corchete ']' tras el registro MAR.");
-        return;
-    }
-}
-
-static void parsear_formato_load(InstruccionIR* ir, int n) {
-    // Extraer destinos ortogonales (Rd y/o WO)
-    n = obtener_destinos_ortogonales(ir, n);
-    if (n == 0) return;
-
-    if (!match_tipo(n, TOKEN_CORCHETE_I)) {
-        reportar_error(n, TOKEN_CORCHETE_I, "Se esperaba '[' para la dirección de memoria en LOAD.");
-        return;
-    }
-    if (!match_tipo(n + 1, TOKEN_REGISTRO_RW)) {
-        reportar_error(n + 1, TOKEN_REGISTRO_RW, "Se esperaba el registro de dirección (MAR) dentro de los corchetes.");
-        return;
-    }
-    ir->fuente[0] = token_a_operando(linea_tokens[n + 1]);
-
-    if (!match_tipo(n + 2, TOKEN_CORCHETE_D)) {
-        reportar_error(n + 2, TOKEN_CORCHETE_D, "Se esperaba cerrar corchete ']' tras el MAR.");
-        return;
-    }
-}
-
-static void parsear_formato_mov_inm(InstruccionIR* ir, int n) {
-    n = obtener_destinos_ortogonales(ir, n);
-    if (n == 0) return;
-
-    if (!match_tipo(n, TOKEN_INMEDIATO) && !match_tipo(n, TOKEN_NUMERO)) {
-        reportar_error(n, TOKEN_INMEDIATO, "Se esperaba un valor inmediato (#inm) en MOVI.");
-        return;
-    }
-    ir->fuente[0] = token_a_operando(linea_tokens[n]);
-}
-
-static void parsear_formato_alu_unario(InstruccionIR* ir, int n) {
-    if (match_tipo(n, TOKEN_MODIFICADOR)) {
-        if (match_lexema(n, ".F")){
+static void parsear_formato_alu_unario(InstruccionIR* ir, int* n) {
+    if (match_tipo(*n, TOKEN_MODIFICADOR)) {
+        if (match_lexema(*n, ".F")){
             ir->tiene_modificador_f = 1;
-            n++;
+            (*n)++;
         }else{
-            reportar_error(n, TOKEN_MODIFICADOR, "Modificador desconocido. Solo se permite '.F' para actualizar flags.");
+            reportar_error(*n, TOKEN_MODIFICADOR, "Modificador desconocido. Solo se permite '.F' para actualizar flags.");
             return;
         }
     }
 
-    n = obtener_destinos_ortogonales(ir, n);
-    if (n == 0) return;
-
-    if (!match_tipo(n, TOKEN_REGISTRO_RW)) {
-        reportar_error(n, TOKEN_REGISTRO_RW, "Se esperaba un registro fuente (Rs).");
+    ir->destino = consumir_operando(ir, n);
+    if (ir->destino.tipo == OPERANDO_NULO) return;
+    
+    if (!match_tipo(*n, TOKEN_COMA)) {
+        reportar_error(*n, TOKEN_COMA, "Se esperaba ',' entre el destino y la fuente.");
         return;
     }
-    ir->fuente[0] = token_a_operando(linea_tokens[n]);
+    (*n)++; // Consumir ','
+
+    ir->fuente[0] = consumir_operando(ir, n);
+    if (ir->fuente[0].tipo == OPERANDO_NULO) return;
 }
 
-static void parsear_formato_mov(InstruccionIR* ir, int n) {
-    n = obtener_destinos_ortogonales(ir, n);
-    if (n == 0) return;
-
-    if (!match_tipo(n, TOKEN_REGISTRO_RW) && !match_tipo(n, TOKEN_REGISTRO_RO)) {
-        reportar_error(n, TOKEN_REGISTRO_RW, "Se esperaba un registro fuente (Rs / Ra).");
+static void parsear_formato_mov(InstruccionIR* ir, int* n) {
+    ir->destino = consumir_operando(ir, n);
+    if (ir->destino.tipo == OPERANDO_NULO) return;
+    
+    if (!match_tipo(*n, TOKEN_COMA)) {
+        reportar_error(*n, TOKEN_COMA, "Se esperaba ',' entre el destino y la fuente en MOV.");
         return;
     }
-    ir->fuente[0] = token_a_operando(linea_tokens[n]);
+    (*n)++; // Consumir ','
+
+    ir->fuente[0] = consumir_operando(ir, n);
+    if (ir->fuente[0].tipo == OPERANDO_NULO) return;
 }
 
-static void parsear_formato_binario(InstruccionIR* ir, int n) {
+static void parsear_formato_alu_binario(InstruccionIR* ir, int* n) {
     // Si la instrucción es CMP no escribe en destinos, va directo a fuentes
-    if (match_tipo(n, TOKEN_MODIFICADOR)) {
-        if (match_lexema(n, ".F")){
+    if (match_tipo(*n, TOKEN_MODIFICADOR)) {
+        if (match_lexema(*n, ".F")){
             ir->tiene_modificador_f = 1;
-            n++;
+            (*n)++;
         }else{
-            reportar_error(n, TOKEN_MODIFICADOR, "Modificador desconocido. Solo se permite '.F' para actualizar flags.");
+            reportar_error(*n, TOKEN_MODIFICADOR, "Modificador desconocido. Solo se permite '.F' para actualizar flags.");
             return;
         }
     }
 
-    if (ir->tipo != INSTR_CMP) {
-        n = obtener_destinos_ortogonales(ir, n);
-        if (n == 0) return;
-    }else{
+    if (ir->tipo == INSTR_CMP) {
         ir->tiene_modificador_f = 1;
+        ir->destino.tipo = OPERANDO_NULO;
+    } else {
+        ir->destino = consumir_operando(ir, n);
+        if (ir->destino.tipo == OPERANDO_NULO) return;
+
+        if (!match_tipo(*n, TOKEN_COMA)) {
+            reportar_error(*n, TOKEN_COMA, "Se esperaba ',' tras el destino.");
+            return;
+        }
+        (*n)++; // Consumir ','
     }
 
-    if (!match_tipo(n, TOKEN_REGISTRO_RW)) {
-        reportar_error(n, TOKEN_REGISTRO_RW, "Se esperaba el primer registro fuente (Ra).");
-        return;
-    }
-    ir->fuente[0] = token_a_operando(linea_tokens[n]);
+    ir->fuente[0] = consumir_operando(ir, n);
+    if (ir->fuente[0].tipo == OPERANDO_NULO) return;
 
-    if (!match_tipo(n + 1, TOKEN_COMA)) {
-        reportar_error(n + 1, TOKEN_COMA, "Se esperaba ',' entre los registros fuentes.");
+    if (!match_tipo(*n, TOKEN_COMA)) {
+        reportar_error(*n, TOKEN_COMA, "Se esperaba ',' entre los operandos fuente.");
         return;
     }
+    (*n)++; // Consumir ','
 
-    if (!match_tipo(n + 2, TOKEN_REGISTRO_RW)) {
-        reportar_error(n + 2, TOKEN_REGISTRO_RW, "Se esperaba el segundo registro fuente (Rb).");
-        return;
-    }
-    ir->fuente[1] = token_a_operando(linea_tokens[n + 2]);
+    ir->fuente[1] = consumir_operando(ir, n);
+    if (ir->fuente[1].tipo == OPERANDO_NULO) return;
 }
 
 InstruccionIR parsear_linea_tokens(Token* tokens, int cantidad_tokens) {
     InstruccionIR ir;
     memset(&ir, 0, sizeof(InstruccionIR));
+    uint32_t errores_antes = contador_errores;
 
     linea_tokens = tokens;
     total_tokens = cantidad_tokens;
 
     ir.linea = linea_tokens[0].linea;
+
+    // Inicialización explícita del control de MAR como nulo
+    ir.MAR_Control.tipo = OPERANDO_NULO;
+    ir.MAR_Control.valor = 0;
+    ir.tiene_modificador_f = 0;
+    ir.inmediato.tipo = OPERANDO_NULO;
 
     if (total_tokens == 0 || match_tipo(0, TOKEN_EOF)) {
         ir.tipo = INSTR_DESCONOCIDA;
@@ -372,7 +364,17 @@ InstruccionIR parsear_linea_tokens(Token* tokens, int cantidad_tokens) {
         return ir;
     }
 
+    // Ignorar líneas que solo contienen una etiqueta (ej. "inicio:")
     if (total_tokens >= 2 && match_tipo(0, TOKEN_IDENTIFICADOR) && match_tipo(1, TOKEN_DOSPUNTOS)) {
+        if (total_tokens != 2) {
+            reportar_error(2, linea_tokens[2].tipo, "Tokens adicionales tras la declaración de una etiqueta.");
+        }
+        ir.tipo = INSTR_DESCONOCIDA;
+        return ir;
+    }
+
+    if (comprobar_exceso_token(TOKEN_CORCHETE_I)) {
+        reportar_error(0, TOKEN_CORCHETE_I, "Violación de ISA: Solo se permite una referencia de dirección RAM '[...]' por instrucción.");
         ir.tipo = INSTR_DESCONOCIDA;
         return ir;
     }
@@ -381,9 +383,6 @@ InstruccionIR parsear_linea_tokens(Token* tokens, int cantidad_tokens) {
 
     if      (strcmp(mnemonico, "NOP") == 0)   ir.tipo = INSTR_NOP;
     else if (strcmp(mnemonico, "MOV") == 0)   ir.tipo = INSTR_MOV;
-    else if (strcmp(mnemonico, "MOVI") == 0)  ir.tipo = INSTR_MOVI;
-    else if (strcmp(mnemonico, "LOAD") == 0)  ir.tipo = INSTR_LOAD;
-    else if (strcmp(mnemonico, "STORE") == 0) ir.tipo = INSTR_STORE;
     else if (strcmp(mnemonico, "ADD") == 0)   ir.tipo = INSTR_ADD;
     else if (strcmp(mnemonico, "SUB") == 0)   ir.tipo = INSTR_SUB;
     else if (strcmp(mnemonico, "ADC") == 0)   ir.tipo = INSTR_ADC;
@@ -406,12 +405,7 @@ InstruccionIR parsear_linea_tokens(Token* tokens, int cantidad_tokens) {
     else if (strcmp(mnemonico, "JNN") == 0)   ir.tipo = INSTR_JNN;
     else if (strcmp(mnemonico, "JV") == 0)    ir.tipo = INSTR_JV;
     else if (strcmp(mnemonico, "JNV") == 0)   ir.tipo = INSTR_JNV;
-    else if (strcmp(mnemonico, "WAITH") == 0 || strcmp(mnemonico, "WAITV") == 0) {
-        ir.tipo = INSTR_WAIT;
-        ir.fuente[0].tipo = OPERANDO_INMEDIATO;
-        ir.fuente[0].valor = (strcmp(mnemonico, "WAITV") == 0) ? 1 : 0;
-        return ir;
-    } else {
+    else {
         reportar_error(0, TOKEN_IDENTIFICADOR, "Mnemónico no reconocido '%s'", mnemonico);
         ir.tipo = INSTR_DESCONOCIDA;
         return ir;
@@ -426,35 +420,28 @@ InstruccionIR parsear_linea_tokens(Token* tokens, int cantidad_tokens) {
             break;
 
         case FORMATO_SALTO:
-            parsear_formato_salto(&ir, n);
-            break;
-
-        case FORMATO_STORE:
-            parsear_formato_store(&ir, n);
-            break;
-
-        case FORMATO_LOAD:
-            parsear_formato_load(&ir, n);
-            break;
-
-        case FORMATO_MOVI:
-            parsear_formato_mov_inm(&ir, n);
+            parsear_formato_salto(&ir, &n);
             break;
 
         case FORMATO_MOV:
-            parsear_formato_mov(&ir, n);
+            parsear_formato_mov(&ir, &n);
             break;
+
         case FORMATO_ALU_UNARIO:
-            parsear_formato_alu_unario(&ir, n);
+            parsear_formato_alu_unario(&ir, &n);
             break;
 
         case FORMATO_ALU_BINARIO:
-            parsear_formato_binario(&ir, n);
+            parsear_formato_alu_binario(&ir, &n);
             break;
 
         default:
             reportar_error(0, TOKEN_IDENTIFICADOR, "Formato de instrucción no soportado.");
             break;
+    }
+
+    if (errores_antes == contador_errores && n < total_tokens && !match_tipo(n, TOKEN_EOF)) {
+        reportar_error(n, linea_tokens[n].tipo, "Sintaxis inválida: Operacion realizada (%s) con Tokens sobrantes al final de la línea ('%s').", linea_tokens[0].lexema, linea_tokens[n].lexema);
     }
 
     return ir;

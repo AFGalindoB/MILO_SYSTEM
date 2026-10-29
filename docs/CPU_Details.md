@@ -1,363 +1,403 @@
 # CPU Details - Milo CPU
 
-Versión: 1.0.0
+Versión: 2.0.0
 
 ![CPU](images/CPU_Desing.png)
 
 ## Introducción
 
-Milo es un procesador de propósito general de 24 bits diseñado alrededor de una arquitectura basada en registros, una unidad de control cableada y un conjunto de coprocesadores especializados.
+Milo es un procesador de propósito general de 24 bits diseñado alrededor de una arquitectura basada en registros, una unidad de control cableada y un datapath sincronizado por ciclos de reloj.
 
-La CPU constituye el núcleo de procesamiento del ecosistema Milo y se comunica con otros subsistemas mediante registros especiales mapeados por hardware.
+La CPU constituye el núcleo de procesamiento de la arquitectura Milo. Su diseño define los componentes necesarios para ejecutar instrucciones, realizar operaciones sobre datos, controlar el flujo de ejecución y acceder a las memorias del sistema.
 
-Actualmente estos registros permiten controlar la GPU y consultar el estado del sistema de entrada.
+Los periféricos no forman parte obligatoria de la CPU. Una implementación de Milo puede integrar diferentes periféricos según el propósito del sistema, utilizando los mecanismos de comunicación definidos por la arquitectura.
 
-Su diseño prioriza una organización sencilla del datapath, una implementación completamente cableada y una clara separación entre el lenguaje ensamblador (ISA) y la representación física ejecutada por el hardware.
+Este documento describe la organización interna de la CPU y el comportamiento de sus principales componentes físicos.
 
-Este documento describe exclusivamente la organización interna del procesador y los componentes que conforman la implementación actual.
+La semántica de las instrucciones visibles para el programador se encuentra definida en el documento [Milo ISA](./ISA.md), mientras que la representación binaria de las instrucciones se describe en [Instruction Encoding Specification](./InstructionEncoding.md).
+
+---
 
 ## Especificaciones
 
-Arquitectura:
-- CPU de 24 bits
-
-Banco de registros:
-- 16 registros de propósito general (24 bits)
-
-Program Counter:
-- 24 bits
-
-Stack Pointer:
-- 8 bits de direcciones de 24 bits
-
-Status Register:
-- Flags N, Z, C y V
-
-Unidad de control:
-- Hardwired Control Unit
-
-Modelo de memoria:
-- ROM de instrucciones
-- RAM de datos
-
-Buses internos:
-- Bus A
-- Bus B
-- Bus C
-
-ALU:
-- ADD
-- ADC
-- SUB
-- SBC
-- AND
-- OR
-- XOR
-- NOT
-- SHL
-- SHR
-- CMP
-
-Control de flujo:
-- JMP
-- CALL
-- RET
-- WAITV
-- Saltos condicionales basados en flags
-
-Registros especiales:
-- TBUF (solo escritura)
-- SCROLL (solo escritura)
-- RINPT (solo lectura)
-
-## Organización interna
-
-### Banco de registros
-
-El procesador dispone de un banco formado por dieciséis registros de propósito general, cada uno con un ancho de 32 bits.
-
-No existe diferenciación entre registros dedicados y registros de propósito general. Todos los registros poseen exactamente las mismas capacidades y pueden emplearse indistintamente como origen o destino de una operación.
-
-El banco de registros dispone de dos puertos de lectura independientes y un puerto de escritura lo que permite obtener dos operandos simultáneamente y escribir un resultado durante el mismo ciclo de ejecución.
-
-Cada instrucción puede seleccionar simultáneamente:
-
-- Un registro destino.
-- Un primer registro fuente.
-- Un segundo registro fuente.
-
-Durante las operaciones de acceso a memoria, dos registros pueden asumir temporalmente las funciones equivalentes a MAR (Memory Address Register) y MDR (Memory Data Register). Esta funcionalidad se implementa mediante señales de control y no requiere registros especializados, reduciendo así la complejidad del hardware y aumentando la flexibilidad de la arquitectura.
-
-El banco de registros contiene únicamente registros de propósito general.
-
-Los registros especiales del sistema, como los pertenecientes a la GPU o al subsistema de entrada, no forman parte del banco de registros. Estos son implementados mediante hardware dedicado y accedidos a través del ISA utilizando identificadores especiales.
+| Componente                     | Especificación                        |
+| ------------------------------ | ------------------------------------- |
+| Arquitectura                   | 24 bits                               |
+| Banco de registros             | 16 registros de 24 bits               |
+| Registros direccionables       | R0–R7                                 |
+| Registros de propósito general | R0–R15                                |
+| Program Counter                | 24 bits                               |
+| Stack Pointer                  | 16 bits                               |
+| Status Register                | Flags N, Z, C y V                     |
+| Unidad de control              | Hardwired Control Unit                |
+| ALU                            | Unidad aritmética y lógica de 24 bits |
+| Memoria de programa            | ROM                                   |
+| Memoria de datos               | RAM independiente                     |
+| Ancho de palabra de RAM        | 24 bits                               |
+| Direcciones de RAM             | 24 bits                               |
+| Organización de RAM            | Un solo puerto                        |
+| Lectura de RAM                 | Asíncrona                             |
+| Escritura de RAM               | Síncrona, flanco de subida            |
+| Buses internos                 | Bus A, Bus B y Bus C                  |
+| Control de flujo               | PC + Stack + saltos                   |
+| Periféricos                    | Dependientes de la implementación     |
 
 ---
 
-### ALU
+# Organización interna
 
-La Unidad Aritmético Lógica (ALU) constituye el bloque encargado de ejecutar las operaciones aritméticas, lógicas y de comparación del procesador.
+## Banco de registros
 
-Además de generar el resultado de la operación, la ALU puede actualizar el Status Register cuando la instrucción así lo solicita mediante el modificador `.F`.
+La CPU dispone de un banco de dieciséis registros de propósito general de 24 bits.
 
-Actualmente implementa:
+Aunque todos los registros pertenecen al mismo banco físico, se encuentran divididos en dos grupos según las operaciones que pueden realizar:
 
-- ADD
-- ADC
-- SUB
-- SBC
-- AND
-- OR
-- XOR
-- NOT
-- SHL
-- SHR
-- CMP
+| Registros | Propósito general | Direccionamiento de memoria |
+| --------- | ----------------- | --------------------------- |
+| `R0–R7`   | Sí                | Sí                          |
+| `R8–R15`  | Sí                | No                          |
 
-Las banderas disponibles son:
+Los registros `R0–R7` pueden utilizarse tanto para operaciones generales como para proporcionar direcciones de memoria.
 
-- Negative (N)
-- Zero (Z)
-- Carry (C)
-- Overflow (V)
+Los registros `R8–R15` pueden utilizarse como operandos y destinos de propósito general, pero no pueden utilizarse para proporcionar directamente una dirección de memoria.
 
-La actualización de dichas banderas es controlada completamente por la palabra de control generada por el compilador.
+Esta división permite conservar dieciséis registros disponibles para operaciones generales sin requerir que todos ellos estén conectados al sistema de direccionamiento de memoria.
 
-La ALU puede escribir tanto en registros de propósito general como en determinados registros especiales del sistema.
+### Puertos del banco de registros
 
-Actualmente la implementación permite actualizar registros pertenecientes al subsistema gráfico, como el registro de Scroll, utilizando exactamente las mismas operaciones aritméticas y lógicas disponibles para los registros convencionales.
+El banco de registros dispone de dos puertos de lectura independientes y un puerto de escritura.
+
+Esto permite que una instrucción pueda obtener simultáneamente dos operandos desde el banco de registros y almacenar un resultado durante el mismo ciclo de ejecución.
+
+La selección de los registros utilizados por cada instrucción es determinada por la lógica de control del procesador.
+
+Los registros de propósito general no incluyen registros dedicados exclusivamente al almacenamiento de direcciones o datos. Las funciones específicas de direccionamiento son determinadas por las conexiones del datapath y las señales de control.
 
 ---
 
-### Status Register
+## Unidad Aritmético-Lógica
 
-El procesador incorpora un registro de estado encargado de almacenar el resultado de determinadas operaciones ejecutadas por la ALU.
+La Unidad Aritmético-Lógica (ALU) es el componente encargado de realizar las operaciones aritméticas, lógicas y de comparación sobre datos de 24 bits.
 
-Actualmente implementa cuatro banderas:
+La ALU se divide conceptualmente en dos componentes principales:
 
-- N (Negative)
-- Z (Zero)
-- C (Carry)
-- V (Overflow)
+* **Unidad de operaciones:** realiza la operación seleccionada sobre los operandos.
+* **Unidad de flags:** determina el estado de las banderas asociado al resultado de la operación.
 
-Estas banderas pueden actualizarse mediante las instrucciones que utilizan el modificador `.F` y posteriormente ser consultadas por las instrucciones de salto condicional.
+La unidad de operaciones implementa:
 
-De esta forma se desacopla el cálculo de una condición de la decisión de modificar el flujo de ejecución.
+* `ADD`
+* `ADC`
+* `SUB`
+* `SBC`
+* `AND`
+* `OR`
+* `XOR`
+* `NOT`
+* `SHL`
+* `SHR`
+* `CMP`
 
----
+El resultado generado por la ALU puede ser dirigido hacia los destinos permitidos por la instrucción y las señales de control correspondientes.
 
-### Buses
+### Unidad de flags
 
-El procesador utiliza una organización basada en tres buses internos que permiten desacoplar la lectura y escritura de datos durante la ejecución de una instrucción.
+La unidad de flags recibe información del resultado generado por la ALU y determina el estado de las banderas del procesador cuando la instrucción solicita su actualización.
 
-Esta organización permite obtener dos operandos simultáneamente y escribir un resultado en un mismo ciclo de ejecución, reduciendo la cantidad de transferencias necesarias dentro del datapath.
+El Status Register contiene:
 
-**Bus A:**
+* `N` — Negative
+* `Z` — Zero
+* `C` — Carry
+* `V` — Overflow
 
-Transporta datos provenientes del banco de registros.
-
-Usos:
-
-- Primer operando de la ALU.
-- MAR
-
-**Bus B:**
-
-- Segundo operando de la ALU.
-
-**Bus C:**
-
-El Bus C constituye el bus de escritura y distribución de datos del procesador.
-
-Sobre este bus pueden colocarse datos provenientes de distintas fuentes internas, entre ellas:
-
-- ALU.
-- RAM.
-- Bus B.
-- Valores inmediatos desde la ROM.
-- Registro de entrada (RINPT).
-
-Dependiendo de las señales de control generadas por la unidad de control, el dato presente sobre el Bus C puede ser escrito en:
-
-- Banco de registros.
-- RAM.
-- Registros especiales de salida (GPU).
-
-> La utilización de tres buses permite leer simultáneamente dos operandos y escribir un resultado durante el mismo ciclo de ejecución.
+La lógica de actualización de las banderas se encuentra separada de la unidad encargada de realizar la operación principal de la ALU.
 
 ---
 
-### Unidad de Control
+## Sistema de buses
 
-La unidad de control implementa una lógica cableada (Hardwired Control Unit).
+La CPU utiliza tres buses internos principales:
 
-Cada instrucción contiene un campo de operación (Opcode) encargado de seleccionar el bloque funcional que ejecutará la instrucción.
+* Bus A
+* Bus B
+* Bus C
 
-El opcode es enviado a un decodificador que habilita el bloque funcional correspondiente. Posteriormente, el campo de control fino de la instrucción es distribuido mediante lógica combinacional hacia el bloque seleccionado.
+Los buses A y B proporcionan los operandos utilizados por los bloques funcionales del datapath.
 
-Este mecanismo permite generar directamente las señales necesarias para controlar:
+El Bus C funciona como bus de distribución y escritura, permitiendo transportar resultados y otros datos hacia los destinos correspondientes.
 
-- Banco de registros
-- ALU
-- Actualización del Status Register
-- Program Counter
-- Stack Pointer
-- Acceso a RAM
-- Selección de buses
-- Control de flujo
-- GPU
+La selección de las fuentes y destinos de los buses se realiza mediante la lógica de control de la CPU.
 
-La unidad de control no emplea memoria de microcódigo ni etapas adicionales de ejecución.
+Esta organización permite que una instrucción pueda obtener dos valores de entrada y distribuir un resultado dentro del mismo ciclo de ejecución.
 
 ---
 
-### Sistema de memoria
+## Sistema de direccionamiento
 
-- ROM
-- RAM
+El sistema de direccionamiento de Milo se encuentra separado del banco de registros de propósito general.
 
-**Organización:**
+La CPU utiliza tres componentes principales para controlar el flujo de direcciones:
 
-A diferencia de una organización jerárquica tradicional donde las instrucciones atraviesan múltiples niveles de memoria antes de llegar al procesador:
+* Program Counter (`PC`)
+* Stack Pointer (`SP`)
+* Stack
+
+### Program Counter
+
+El Program Counter es un registro de 24 bits que contiene la dirección de la siguiente instrucción que debe ser ejecutada.
+
+El PC se encuentra conectado directamente a la memoria de programa, permitiendo obtener la instrucción correspondiente a la dirección almacenada.
+
+En condiciones normales, el PC avanza secuencialmente durante la ejecución del programa.
+
+Las instrucciones de control de flujo pueden modificar su contenido para realizar:
+
+* Saltos.
+* Llamadas a subrutinas.
+* Retornos.
+* Saltos condicionales.
+* Otros mecanismos de control implementados por la arquitectura.
+
+### Stack
+
+El stack de Milo utiliza actualmente una memoria independiente de la RAM de datos. Su propósito es almacenar las direcciones de retorno y la información necesaria para el mecanismo de subrutinas.
+
+La memoria del stack posee las siguientes características:
+
+| Característica   | Valor                         |
+| ---------------- | ----------------------------- |
+| Direccionamiento | 8 bits                        |
+| Profundidad      | 256 posiciones                |
+| Ancho de palabra | 24 bits                       |
+| Lectura          | Asíncrona                     |
+| Escritura        | Sincrónica                    |
+| Actualización    | Flanco de subida              |
+| Transferencia    | Palabras completas de 24 bits |
+| Puerto           | Un puerto                     |
+
+El **Stack Pointer (SP)** utiliza 8 bits para seleccionar la posición dentro de esta memoria. Cada posición almacena una palabra completa de 24 bits, por lo que las direcciones de retorno pueden almacenarse directamente sin dividirlas en varias operaciones.
+
+La lectura del stack es asíncrona: una vez establecida la posición mediante el `SP`, el contenido correspondiente puede propagarse hacia el datapath sin esperar un flanco de reloj. Las escrituras, en cambio, se realizan de forma sincrónica y se hacen efectivas en el flanco de subida del reloj.
+
+Actualmente, esta memoria se implementa físicamente como una RAM independiente de la RAM de datos. Esta separación no constituye necesariamente una restricción permanente de la arquitectura. Se evaluará posteriormente la posibilidad de:
+
+* implementar el stack mediante una memoria completamente sincrónica;
+* integrar el espacio del stack dentro de la RAM de datos;
+* o mantener una memoria físicamente independiente.
+
+Por tanto, la arquitectura define el **comportamiento del stack**, mientras que su integración física podrá modificarse en futuras implementaciones sin alterar necesariamente la interfaz arquitectónica del CPU.
+
+### Stack Pointer
+
+El Stack Pointer controla la posición utilizada por la pila de hardware.
+
+A diferencia del PC, el Stack Pointer utiliza 8 bits para representar posiciones dentro del espacio destinado al Stack.
+
+El Stack es utilizado principalmente para almacenar direcciones de retorno durante las llamadas a subrutinas.
+
+Las instrucciones `CALL` y `RET` utilizan el Stack Pointer para realizar automáticamente las operaciones necesarias sobre la pila.
+
+---
+
+# Sistema de memoria
+
+Milo utiliza una organización de memoria separada entre la memoria de programa y la memoria de datos.
 
 ```text
-ROM
- ↓
-RAM
- ↓
-CPU
+              ROM
+               │
+               ▼
+        +-------------+
+        |     CPU     |
+        +-------------+
+               │
+               ▼
+              RAM
 ```
 
-Milo utiliza una organización de memoria dividida:
+La memoria de programa y la memoria de datos no forman una jerarquía común.
 
-```text
-             ROM
-              │
-              ▼
-        +-------------+
-        |    CPU      |
-        +-------------+
-          ▲      ▲
-          │      │
-          ▼     GPU 
-         RAM    
-```
+## Memoria de programa
 
-La ROM se conecta directamente a la unidad de procesamiento y constituye la fuente de instrucciones del procesador.
+La memoria de programa contiene las instrucciones que serán ejecutadas por la CPU.
 
-La RAM se considera un recurso independiente destinado exclusivamente al almacenamiento de datos y es accedida mediante operaciones explícitas utilizando registros de propósito general.
+El Program Counter proporciona directamente la dirección utilizada para acceder a esta memoria.
 
-Esta organización simplifica el datapath, reduce la lógica de control necesaria durante la búsqueda de instrucciones y desacopla completamente el flujo de instrucciones del acceso a datos.
+La ROM almacena las instrucciones completas utilizadas por el procesador y constituye la fuente principal de información para la unidad de control durante la ejecución.
 
-> El Stack utilizado por CALL y RET forma parte del hardware del procesador y es administrado mediante el Stack Pointer y las señales de control del bloque Program Counter.
+La memoria de programa se encuentra separada de la RAM utilizada para almacenar datos.
 
 ---
 
-### Program Counter y Stack
+## Memoria RAM
 
-El Program Counter (PC) almacena la dirección de la siguiente instrucción a ejecutar.
+La RAM constituye la memoria de datos de la CPU y se encuentra físicamente separada de la memoria de programa.
 
-En condiciones normales el PC avanza secuencialmente una posición por ciclo.
+Su organización es:
 
-Las instrucciones de control de flujo permiten modificar dicho comportamiento realizando saltos directos o cargando una dirección almacenada en el Stack.
+| Característica        | Especificación   |
+| --------------------- | ---------------- |
+| Ancho de dirección    | 24 bits          |
+| Espacio direccionable | `2²⁴` palabras   |
+| Ancho de palabra      | 24 bits          |
+| Organización          | Un solo puerto   |
+| Lectura               | Asíncrona        |
+| Escritura             | Síncrona         |
+| Flanco de escritura   | Flanco de subida |
 
-El procesador incorpora además un Stack Pointer (SP) utilizado para implementar llamadas a subrutinas.
+Cada posición de memoria almacena una palabra completa de 24 bits.
 
-Actualmente se soportan las siguientes operaciones:
+La RAM utiliza un único puerto para las operaciones de acceso. Por lo tanto, las operaciones de lectura y escritura se realizan sobre una única dirección de memoria establecida para cada operación.
 
-- **CALL:** Almacena automáticamente la dirección de retorno sobre el Stack y actualiza el Stack Pointer.
-- **RET:** Recupera dicha dirección y la carga nuevamente en el Program Counter.
-- **JMP:** Permite cargar una direccion en el program counter directamente.
-- **Saltos condicionales:** Permite cargar una direccion en memoria si se cumple una condicion indicada.
-- **WAITV:** Permite detener temporalmente la ejecución de la CPU hasta que la GPU indique el inicio del período de Blank Vertical (Vertical Blank).
-- **WAITH:** Permite detener temporalmente la ejecución de la CPU hasta que la GPU indique el inicio del período de Blank Horizontal (Horizontal Blank).
+### Lectura
 
-> WAITV y WAITH facilitan la sincronización entre CPU y GPU evitando modificaciones del estado gráfico durante el proceso de generación del cuadro.
+La lectura de RAM es asíncrona.
 
-### Subsistema de entrada
+Cuando una dirección válida se encuentra establecida en la entrada de dirección de la memoria, el contenido correspondiente puede propagarse hacia la salida sin esperar un flanco de reloj.
 
-La CPU incorpora un registro especial denominado **RINPT**, encargado de almacenar el estado actual de los dispositivos de entrada conectados al sistema.
+Esto permite que los datos almacenados en RAM participen directamente en las operaciones del datapath durante el ciclo de ejecución.
 
-A diferencia de los registros de propósito general, RINPT es un registro de solo lectura cuyo contenido es actualizado directamente por el hardware externo.
+### Escritura
 
-Actualmente cada bit representa el estado de un botón del controlador.
+La escritura de RAM es síncrona.
 
-| Bit | Función  |
-| --- | -------- |
-|  0  | A        |
-|  1  | B        |
-|  2  | X        |
-|  3  | Y        |
-|  4  | UP       |
-|  5  | LEFT     |
-|  6  | RIGHT    |
-|  7  | DOWN     |
+El dato presente en la entrada de escritura se almacena en la dirección seleccionada cuando ocurre el flanco de subida del reloj.
 
-Los bits restantes permanecen reservados para futuras ampliaciones del sistema de entrada.
+Por lo tanto, una modificación sobre la RAM se hace efectiva de forma sincronizada con el reloj del procesador.
 
-### Registros especiales
+### Acceso de palabra completa
 
-Además del banco de registros de propósito general, la CPU dispone de un conjunto de registros especiales utilizados para controlar periféricos internos del sistema.
+La RAM opera sobre palabras completas de 24 bits.
 
-Actualmente el procesador implementa registros especiales de dos categorías:
+Cada operación de lectura proporciona una palabra completa de 24 bits y cada operación de escritura almacena una palabra completa de 24 bits.
 
-- Registros de solo escritura, utilizados para controlar periféricos.
-- Registros de solo lectura, utilizados para consultar el estado del hardware.
+La arquitectura no realiza accesos parciales a bytes o grupos de bits dentro de una palabra de memoria.
 
-#### Registros de solo escritura
+---
 
-- **SCROLL:**
-  Registro conectado a la GPU encargado de actualizar el desplazamiento horizontal y vertical del mapa de tiles.
-  
-  Puede utilizarse como destino de operaciones MOV, MOVI y de instrucciones ejecutadas por la ALU.
+# Unidad de control
 
-- **TBUF:**
-  Registro utilizado para escribir datos directamente sobre el Tile Buffer de la GPU.
-  
-  Cada escritura contiene tanto el índice del tile como la dirección donde será almacenado.
+La unidad de control implementa una lógica cableada (*Hardwired Control Unit*).
 
-#### Registros de solo lectura
+Cada instrucción contiene la información necesaria para determinar la operación que debe realizar el datapath.
 
-- **RINPT:**
-  Registro utilizado para consultar el estado del sistema de entrada.
-  
-  Su contenido es generado directamente por el hardware y puede utilizarse como fuente en instrucciones de transferencia de datos.
-  
-  A diferencia de los registros de propósito general, RINPT no admite operaciones de escritura desde software.
+La unidad de control decodifica dicha información y genera las señales necesarias para controlar los diferentes componentes del procesador.
 
-## Características relevantes actuales
+Entre los componentes controlados se encuentran:
 
-Actualmente Milo implementa:
+* Banco de registros.
+* ALU.
+* Unidad de flags.
+* Program Counter.
+* Stack Pointer.
+* Sistema de memoria.
+* Selección de buses.
+* Sistema de direccionamiento.
+* Destinos de escritura.
 
-- Ejecución secuencial.
-- Banco de 16 registros.
-- CPU de 24 bits.
-- Program Counter de 24 bits.
-- ALU completa.
-- Status Register.
-- Saltos.
-- CALL / RET.
-- LOAD / STORE.
-- Registros especiales.
-- Comunicación CPU-GPU.
-- Tile Buffer.
-- Scroll por hardware.
-- WAITV.
-- Unidad de control cableada.
-- Subsistema de entrada.
-- Registro especial RINPT.
+La unidad de control no utiliza memoria de microcódigo.
 
-Actualmente aún no incorpora:
+Las señales de control son generadas mediante lógica cableada y lógica combinacional asociada a la instrucción en ejecución.
 
-- OAM.
-- Audio.
-- DMA.
-- Caché.
-- MMU.
-- Pipeline.
-- Predicción de saltos.
+---
 
-> **Nota**
+# Ejecución de instrucciones
+
+Milo utiliza un modelo de ejecución sincronizado por ciclos de reloj.
+
+Durante cada ciclo, la instrucción determina la configuración necesaria del datapath para realizar la operación correspondiente.
+
+Los datos pueden propagarse a través de los buses y bloques funcionales durante el ciclo, mientras que las modificaciones sobre elementos síncronos se hacen efectivas en el flanco correspondiente del reloj.
+
+Entre los elementos que utilizan comportamiento síncrono se encuentran:
+
+* Banco de registros.
+* Program Counter.
+* Stack Pointer.
+* Stack.
+* Escritura de RAM.
+* Status Register cuando se actualizan las flags.
+
+La RAM, por el contrario, proporciona lectura asíncrona.
+
+Este modelo permite mantener un comportamiento determinista y directamente relacionado con los ciclos de reloj de la CPU.
+
+---
+
+# Interfaz con periféricos
+
+La CPU puede comunicarse con periféricos externos mediante interfaces definidas por la implementación concreta del sistema.
+
+Los periféricos no forman parte obligatoria del núcleo de la CPU.
+
+Una implementación puede integrar diferentes recursos según su propósito, por ejemplo:
+
+* Sistemas de entrada.
+* Sistemas gráficos.
+* Audio.
+* Almacenamiento.
+* Comunicación.
+* Temporización.
+* Otros dispositivos especializados.
+
+La CPU proporciona los mecanismos necesarios para intercambiar información con estos recursos, mientras que las características concretas de cada periférico se especifican en su documentación correspondiente.
+
+De esta forma, diferentes productos pueden utilizar el mismo núcleo de procesamiento Milo y proporcionar conjuntos de periféricos diferentes.
+
+---
+
+# Implementaciones de Milo
+
+La arquitectura Milo puede utilizarse como base para diferentes tipos de sistemas.
+
+El núcleo de CPU mantiene la misma arquitectura fundamental, mientras que los periféricos integrados pueden variar según el propósito de la implementación.
+
+Entre las implementaciones previstas se encuentran:
+
+### Milo Core
+
+Implementación orientada a sistemas de tipo microcontrolador.
+
+Está destinada a sistemas donde resulta prioritario disponer de procesamiento determinista y un conjunto reducido de recursos externos.
+
+### Milo Console
+
+Implementación orientada a sistemas de entretenimiento y procesamiento gráfico.
+
+Integra periféricos especializados para las funciones necesarias del sistema, incluyendo los recursos gráficos correspondientes.
+
+---
+
+# Características de la implementación actual
+
+La implementación actual de Milo incluye:
+
+* CPU de 24 bits.
+* Banco de 16 registros de propósito general.
+* Restricción de direccionamiento mediante `R0–R7`.
+* Program Counter de 24 bits.
+* Stack Pointer.
+* Stack de hardware.
+* ALU de 24 bits.
+* Unidad independiente para cálculo de flags.
+* Status Register con `N`, `Z`, `C` y `V`.
+* Tres buses internos.
+* Unidad de control cableada.
+* ROM de programa independiente.
+* RAM de datos independiente.
+* RAM de 24 bits de dirección y 24 bits de palabra.
+* Lectura asíncrona de RAM.
+* Escritura síncrona de RAM en flanco de subida.
+* RAM de un solo puerto.
+* Ejecución sincronizada por ciclos de reloj.
+
+Los periféricos concretos implementados por una versión determinada de Milo se documentan de forma independiente y no forman parte de esta lista de componentes fundamentales de la CPU.
+
+---
+
+> **Nota de evolución**
 >
-> Hasta la versión 0.1 Milo utilizó una arquitectura de 32 bits.
-> A partir de la versión 1.0.0 la arquitectura fue rediseñada sobre un datapath de 24 bits con el objetivo de optimizar el uso de recursos en FPGA y reducir la complejidad del hardware, manteniendo la filosofía del ISA y del compilador.
+> Las versiones anteriores de Milo integraban la descripción de la CPU y los periféricos específicos dentro del mismo modelo de arquitectura.
+>
+> La arquitectura actual separa el núcleo de procesamiento de los periféricos integrados. Esta separación permite utilizar la misma CPU en diferentes implementaciones, desde sistemas de tipo microcontrolador hasta sistemas orientados a consola o computadores capaces de ejecutar un sistema operativo.

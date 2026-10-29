@@ -3,17 +3,15 @@
 #include <string.h>
 #include "../lexer/lexer.h"
 #include "../parser/parser.h"
+#include "../helpers/tag_manager.h"
 
-#define PROBAR_ERROR_SINTACTICO false
+#define PROBAR_ERROR_SINTACTICO true
 
 // Helper estático para obtener el nombre legible del tipo de instrucción
 static const char* obtener_nombre_instruccion(TipoInstruccion tipo) {
     switch (tipo) {
         case INSTR_NOP:   return "NOP";
         case INSTR_MOV:   return "MOV";
-        case INSTR_MOVI:  return "MOVI";
-        case INSTR_LOAD:  return "LOAD";
-        case INSTR_STORE: return "STORE";
         case INSTR_ADD:   return "ADD";
         case INSTR_SUB:   return "SUB";
         case INSTR_ADC:   return "ADC";
@@ -38,29 +36,29 @@ static const char* obtener_nombre_instruccion(TipoInstruccion tipo) {
         case INSTR_JNN:   return "JNN";
         case INSTR_JV:    return "JV";
         case INSTR_JNV:   return "JNV";
-        case INSTR_WAIT:  return "WAIT";
 
         default:          return "DESCONOCIDA";
     }
 }
 
-// Auxiliar para formatear un operando individual en texto legible
-static void imprimir_operando(Operando op) {
+// Auxiliar mejorado para formatear un operando de manera contextual
+static void imprimir_operando(InstruccionIR* ir, Operando op) {
     switch (op.tipo) {
-        case OPERANDO_REG_RW:
+        case OPERANDO_REG:
             printf("R%d", op.valor);
             break;
-        case OPERANDO_REG_WO:
-            if (op.valor == 1) printf("TBUF");
-            else if (op.valor == 2) printf("SCROLL");
-            else printf("WO#%d", op.valor);
-            break;
-        case OPERANDO_REG_RO:
-            if (op.valor == 1) printf("RINPT");
-            else printf("RO#%d", op.valor);
-            break;
         case OPERANDO_INMEDIATO:
-            printf("#%d", op.valor);
+            printf("#%d", ir->inmediato.valor);
+            break;
+        case OPERANDO_RAM:
+            // Si el operando es RAM, mostramos cómo se direccionó si hay información de MAR
+            if (ir->MAR_Control.tipo != OPERANDO_NULO) {
+                printf("[");
+                imprimir_operando(ir, ir->MAR_Control);
+                printf("]");
+            } else {
+                printf("RAM");
+            }
             break;
         case OPERANDO_NULO:
             printf("NONE");
@@ -68,47 +66,89 @@ static void imprimir_operando(Operando op) {
     }
 }
 
-// Función auxiliar para desempaquetar e imprimir de forma genérica
+// Imprime de forma especializada según la categoría de la instrucción
 static void desempaquetar_e_imprimir(InstruccionIR* instr) {
     const char* nombre = obtener_nombre_instruccion(instr->tipo);
-    printf("[Línea %02d] Parsed: %-5s | ", instr->linea, nombre);
+    printf("[Línea %02d] Parsed: %-5s", instr->linea, nombre);
 
-    // ====================================================
-    // 1. IMPRESIÓN DE DESTINOS (Ortogonalidad)
-    // ====================================================
-    bool tiene_destino = (instr->destino[0].tipo != OPERANDO_NULO || 
-                          instr->destino[1].tipo != OPERANDO_NULO);
+    // Agregar modificador .F si la instrucción actualiza banderas
+    if (instr->tiene_modificador_f && instr->tipo != INSTR_CMP) {
+        printf(".F");
+    } else {
+        printf("  ");
+    }
 
-    if (tiene_destino) {
-        printf("Destinos: [");
-        bool primero = true;
-        for (int i = 0; i < 2; i++) {
-            if (instr->destino[i].tipo != OPERANDO_NULO) {
-                if (!primero) printf(", ");
-                imprimir_operando(instr->destino[i]);
-                primero = false;
+    printf(" | ");
+
+    switch (instr->formato) {
+
+        case FORMATO_SIN_OPERANDOS:
+            // Caso NOP, RET
+            printf("Tipo: [Sin Operandos]");
+            break;
+
+        case FORMATO_SALTO:
+            // Caso JMP, JZ, CALL, etc.
+            printf("Destino Salto: [");
+            if (instr->inmediato.valor != 0 || instr->fuente[0].tipo == OPERANDO_INMEDIATO) {
+                printf("#%d", instr->inmediato.valor);
+            } else {
+                printf("Dirección/Etiqueta");
             }
-        }
-        printf("] | ");
+            printf("]");
+            break;
+
+        case FORMATO_MOV:
+            // Caso MOV Destino, Fuente
+            printf("Destino: [");
+            imprimir_operando(instr, instr->destino);
+            printf("] <- Fuente: [");
+            imprimir_operando(instr, instr->fuente[0]);
+            printf("]");
+            break;
+
+        case FORMATO_ALU_UNARIO:
+            // Caso NOT
+            printf("Destino: [");
+            imprimir_operando(instr, instr->destino);
+            printf("] <- Operando: [");
+            imprimir_operando(instr, instr->fuente[0]);
+            printf("]");
+            break;
+
+        case FORMATO_ALU_BINARIO:
+            // Caso CMP (sin destino) vs Operaciones Aritmético-Lógicas (con destino)
+            if (instr->tipo == INSTR_CMP) {
+                printf("Comparación: [");
+                imprimir_operando(instr, instr->fuente[0]);
+                printf("] vs [");
+                imprimir_operando(instr, instr->fuente[1]);
+                printf("]");
+            } else {
+                printf("Destino: [");
+                imprimir_operando(instr, instr->destino);
+                printf("] <- Ops: [");
+                imprimir_operando(instr, instr->fuente[0]);
+                printf(", ");
+                imprimir_operando(instr, instr->fuente[1]);
+                printf("]");
+            }
+            break;
+
+        default:
+            printf("Tipo: [Desconocido]");
+            break;
     }
 
-    // ====================================================
-    // 2. IMPRESIÓN DE OPERANDOS FUENTE Y ATRIBUTOS
-    // ====================================================
-    printf("Fuentes: [");
-    bool primera_fuente = true;
-    for (int i = 0; i < 2; i++) {
-        if (instr->fuente[i].tipo != OPERANDO_NULO) {
-            if (!primera_fuente) printf(", ");
-            imprimir_operando(instr->fuente[i]);
-            primera_fuente = false;
+    // Información extra para depuración de accesos a memoria (MAR)
+    if (instr->MAR_Control.tipo != OPERANDO_NULO && instr->formato != FORMATO_MOV) {
+        printf(" | MAR Direccionado por: [");
+        if (instr->MAR_Control.tipo == OPERANDO_REG) {
+            printf("R%d", instr->MAR_Control.valor);
+        } else {
+            printf("#%d", instr->inmediato.valor);
         }
-    }
-    printf("]");
-
-    // Mostrar modificador de banderas (.F) si la instrucción lo posee
-    if (instr->tiene_modificador_f) {
-        printf(" | UpdateFlags: .F");
+        printf("]");
     }
 
     printf("\n");
@@ -118,61 +158,62 @@ int main() {
     // 1. Único código de prueba que contiene las nuevas incorporaciones (ADC, SBC, modificadores .F)
     const char* codigo_prueba = 
     #if !PROBAR_ERROR_SINTACTICO
-        "; ---- Bloque de Pruebas Exitosas ----\n"
+        "; ---- Bloque de Pruebas Exitosas (Milo ISA v2.0.0) ----\n"
         "NOP\n"
-        "MOVI R1, #25                ; MOVI estándar\n"
-        "MOVI TBUF, #100           ; MOVI ortogonal directo a registro especial\n"
-        "MOVI TBUF, R1, #50          ; MOVI ortogonal con Rd + Reg Especial\n"
-        "MOV R2, R1                  ; MOV estándar\n"
-        "MOV TBUF, R2                ; MOV ortogonal directo a registro especial\n"
-        "MOV TBUF, R3, R2            ; MOV ortogonal con Rd + Reg Especial\n"
+        "MOV R1, #25                 ; Reemplazo de MOVI: Inmediato a registro decimal\n"
+        "MOV R3, #0x12               ; Reemplazo de MOVI: Inmediato a registro hexadecimal\n"
+        "MOV [#0x12], #0x12          ; Escritura de inmediato a memoria (Dir inmediata)\n"
+        "MOV R2, R1                  ; MOV estándar: Registro a registro\n"
+        "MOV R3, [#0x10]             ; Reemplazo de LOAD: Lectura desde memoria (Dir inmediata)\n"
+        "MOV [R1], R2                ; Reemplazo de STORE: Escritura a memoria (Dir por registro)\n"
+        "MOV [R0], #15               ; Escritura de inmediato a memoria\n"
+        "MOV [#5], RAM               ; Transferencia dummy (sintácticamente válida en ISA)\n"
         "ADD.F R3, R1, R2            ; ALU Binaria estándar con .F y comas\n"
-        "ADD.F TBUF, R3, R1, R2      ; ALU Binaria ortogonal (Especial + Rd + Rs1 + Rs2)\n"
         "SUB R0, R3, R1              ; ALU Binaria sin modificar banderas\n"
-        "ADC.F R4, R2, R3            ; Suma con acarreo\n"
+        "ADC.F R4, R2, R3            ; Suma con acarreo y actualización de flags\n"
         "SBC R5, R4, R1              ; Resta con acarreo\n"
-        "NOT.F R6, R2                ; ALU Unaria estándar\n"
-        "NOT.F TBUF, R6, R2          ; ALU Unaria ortogonal (Especial + Rd + Rs)\n"
-        "NOT SCROLL, R2              ; ALU Unaria ortogonal directo a especial (Especial + Rs)\n"
-        "LOAD R8, [R1]               ; LOAD estándar\n"
-        "LOAD TBUF, R8, [R1]         ; LOAD ortogonal con Rd + Especial\n"
-        "LOAD SCROLL, [R1]           ; LOAD ortogonal directo a especial\n"
-        "STORE R8, [R5]              ; STORE estándar\n"
-        "CMP R1, R2                  ; Comparación básica con coma\n"
-        "JZ #16                      ; Salto si Z=1\n"
-        "CALL #128                 ; Llamada a subrutina\n"
+        "ADD R0, [R1], R2            ; ALU: Memoria como Operando A\n"
+        "ADD [R0], R1, RAM           ; ALU: Escritura en memoria y uso como Operando B\n"
+        "ADD [#0x10], RAM, RAM       ; ALU: Uso de RAM múltiple tras definir MAR\n"
+        "NOT.F R6, R2                ; ALU Unaria estándar con flags\n"
+        "NOT [R7], RAM               ; ALU Unaria: Modificación in-place en memoria\n"
+        "CMP R1, R2                  ; Comparación básica (A - B) descartando resultado\n"
+        "JZ #16                      ; Salto condicional si Z=1\n"
+        "CALL MI_FUNCION             ; Llamada a subrutina usando etiqueta\n"
+        "CALL #50                    ; Llamada a subrutina usando inmediato\n"
+        "MI_FUNCION:                 ; Declaración de etiqueta\n"
         "RET                         ; Retorno de subrutina\n"
-        "ADD.F SCROLL, R1, R2        ; Suma con actualizador de banderas y guardar resultado en GPU\n"
         "JNZ #8                      ; Salto condicional si Z=0\n"
-        "MOV R0, RINPT               ; Pooling a mando\n"
         ;
     #else
-        "; ---- Bloque de Pruebas con Errores Sintácticos ----\n"
-        "ADD R1 R2 R3         ; Error 1: Falta coma obligatoria\n"
-        "MOV R2, R1 R3        ; Error 2: Solo acepta un registro destino y un registro fuente\n"
-        "MOVI R2,             ; Error 3: Inmediato vacío\n"
-        "STORE R3, R4         ; Error 4: Store sin corchetes\n"
-        "LOAD R1, R2          ; Error 5: LOAD sin corchetes\n"
-        "INVENTADO R1, R2     ; Error 6: Mnemónico ilegal\n"
-        "NOT R5, R6 R7        ; Error 7: NOT no acepta segundo operando fuente\n"
-        "ADD.F.G R8, R1 R2    ; Error 8: Doble modificador inválido\n"
-        "ADD.X R1, R2 R3      ; Error 9: Modificador inexistente\n"
-        ".                    ; Error 10: Modificador invalido\n"
-        "CMP R1               ; Error 11: CMP requiere dos operandos\n"
-        "JMP                  ; Error 12: JMP requiere un valor inmediato\n"
-        "JZ R1                ; Error 13: JZ requiere un inmediato, no un registro\n"
-        "RET R1               ; Error 14: RET no acepta parámetros\n"
-        "MOV TBUF,            ; Error 15: MOV con registro especial sin operando fuente\n"
-        "LOAD SCROLL,         ; Error 16: LOAD con registro especial sin operando fuente\n"
-        "ADD SCROLL, R1,      ; Error 17: ADD con registro especial sin segundo operando fuente\n"
-        "SBC.F TBUF, R1,      ; Error 18: SBC con registro especial sin segundo operando fuente\n"
-        "LOAD R1, [RINPT]     ; Error 19: RAM no puede leer de RINPT\n"
+        "; ---- Bloque de Pruebas con Errores Sintácticos (Milo ISA v2.0.0) ----\n"
+        "ADD R1 R2 R3         ; Error 1: Falta coma obligatoria entre operandos\n"
+        "MOV R2, R1, R3       ; Error 2: MOV solo acepta un destino y un fuente\n"
+        "MOV R2,              ; Error 3: Operando faltante tras la coma\n"
+        "MOV [#0x01], #15     ; Error 4: No se permite declarar distintos valores inmediatos en la misma instrucción\n"
+        "INVENTADO R1, R2     ; Error 5: Mnemónico ilegal / desconocido\n"
+        "NOT R5, R6, R7       ; Error 6: NOT es unaria, no acepta segundo operando fuente\n"
+        "ADD.F.G R8, R1, R2   ; Error 7: Doble modificador inválido en el lexema\n"
+        "ADD.X R1, R2, R3     ; Error 8: Modificador de instrucción inexistente (.X)\n"
+        ".                    ; Error 9: Modificador aislado / inválido\n"
+        "CMP R1               ; Error 10: CMP requiere estrictamente dos operandos (A, B)\n"
+        "JMP                  ; Error 11: JMP requiere una dirección destino (Etiqueta o Inmediato)\n"
+        "JZ R1                ; Error 12: Saltos condicionales requieren Inmediato o Etiqueta, no un Registro\n"
+        "RET R1               ; Error 13: RET no acepta parámetros\n"
+        "ADD RAM, RAM, RAM    ; Error 14: Uso de RAM sin definir dirección previa con [...] (MAR nulo)\n"
+        "ADD [R1], [R2], R3   ; Error 15: Violación arquitectónica, doble acceso a direcciones distintas\n"
+        "ADD R0, #5, #10      ; Error 16: No se permite declarar distintos valores inmediatos en la misma instrucción\n"
+        "FIN: NOP             ; Error 17: Tokens adicionales tras la declaración de una etiqueta\n"
+        "MOV [R8], #15        ; Error 18: Registro inválido dentro de '[...]'. Solo se permiten R0 a R7.\n"
+        "MOV.G [#0x01], R1    ; Error 19: MOV no tiene modificadores\n"
         ;
     #endif
 
     printf("====================================================================\n");
     printf("   🔥 EJECUTANDO TESTBENCH DEL PARSER - MILO ASM 🔥        \n");
     printf("====================================================================\n\n");
+
+    pre_escaneo_etiquetas(codigo_prueba);
 
     // Inicializar el lexer con el código fuente en memoria
     inicializar_lexer(codigo_prueba);

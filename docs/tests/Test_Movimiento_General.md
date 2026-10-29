@@ -1,47 +1,99 @@
 # Test Movimiento General
 
-El test **Movimiento General** verifica la correcta generación de código para las instrucciones de transferencia de datos entre registros, memoria y registros especiales de la arquitectura Milo.
+El test **Movimiento General** verifica la correcta generación de código para la instrucción `MOV` de la arquitectura Milo, cubriendo las diferentes combinaciones de transferencia de datos entre el banco de registros, los valores inmediatos y la memoria RAM.
 
-Estas instrucciones constituyen las operaciones fundamentales utilizadas para mover información dentro del procesador y permiten comprobar el funcionamiento del datapath asociado al Bus C.
+La prueba está diseñada para validar el funcionamiento del sistema de operandos de la ISA V2, en el que el direccionamiento de memoria y los valores inmediatos pueden utilizarse directamente como operandos de una instrucción.
+
+Estas operaciones permiten comprobar las rutas de datos asociadas al **Bus C**, así como la correcta selección de fuentes, destinos y control de escritura durante la ejecución de las instrucciones.
 
 ## Escenarios cubiertos
 
 Actualmente la prueba incluye las siguientes instrucciones:
 
-```text
-MOVI R0, #5
-MOV  R1, R0
+```asm
+; ---------- Movimiento general ----------
+MOV R0, #5          ; R0 = 5
+MOV R2, #2          ; R2 = 2
+MOV R1, R0          ; R1 = 5
 
-STORE R0, [R0]
-LOAD  R5, [R0]
+; ---------- Registro -> RAM ----------
+MOV [#1], R0        ; RAM[1] = 5
+MOV [R0], R1        ; RAM[5] = 5
 
-MOVI R2, #1
+; ---------- Inmediato -> RAM ----------
+MOV [#3], #3        ; RAM[3] = 3
+MOV [R2], #7        ; RAM[2] = 7
 
-STORE #3, [R2]
-LOAD  R3, [R2]
+; ---------- RAM -> Registro ----------
+MOV R3, [#3]        ; R3 = 3
+MOV R4, [R0]        ; R4 = 5
 
-BUCLE:
-STORE RINPT, [R3]
-JMP BUCLE
+; ---------- RAM -> RAM ----------
+MOV [#3], RAM       ; RAM[3] = RAM[3]
 ```
 
-Con esta secuencia se valida:
+Con esta secuencia se validan las siguientes formas de `MOV`:
 
-- Carga de valores inmediatos mediante `MOVI`.
-- Transferencia entre registros mediante `MOV`.
-- Escritura en memoria desde un registro (`STORE Rn, [Rn]`).
-- Escritura en memoria desde un valor inmediato (`STORE #n, [Rn]`).
-- Escritura en memoria desde un registro de solo lectura (`STORE RINPT, [Rn]`).
-- Lectura desde memoria mediante `LOAD`.
-- Funcionamiento del salto incondicional `JMP`.
+* Registro → registro: `MOV Rn, Rn`.
+* Inmediato → registro: `MOV Rn, #n`.
+* Registro → RAM con dirección inmediata: `MOV [#n], Rn`.
+* Registro → RAM con dirección almacenada en registro: `MOV [Rn], Rn`.
+* Inmediato → RAM con dirección inmediata: `MOV [#n], #n`.
+* Inmediato → RAM con dirección almacenada en registro: `MOV [Rn], #n`.
+* RAM → registro con dirección inmediata: `MOV Rn, [#n]`.
+* RAM → registro con dirección almacenada en registro: `MOV Rn, [Rn]`.
+* RAM → RAM utilizando la misma referencia de dirección: `MOV [#n], RAM`.
 
-El programa verifica además que la instrucción `STORE` pueda obtener el dato desde cualquiera de las fuentes actualmente soportadas por el **Bus C Source Selector**:
+La prueba permite verificar que los diferentes tipos de operandos puedan ser utilizados directamente por la instrucción `MOV`, sin requerir instrucciones independientes de carga o almacenamiento.
 
-- Banco de registros.
-- Memoria ROM (valor inmediato).
-- Registro de entrada (`RINPT`).
+## Direccionamiento de memoria
 
-Cada una de estas instrucciones utiliza rutas de datos distintas dentro del procesador, permitiendo comprobar la correcta configuración de buses, registros y señales de control durante la generación del código.
+En la ISA V2, una referencia entre corchetes establece la dirección de acceso a la RAM:
+
+```asm
+[#n]
+[Rn]
+```
+
+Una vez establecida esta dirección, el operando `RAM` representa la palabra de memoria correspondiente a dicha dirección.
+
+Por ejemplo:
+
+```asm
+MOV [#3], RAM
+```
+
+representa:
+
+```text
+RAM[3] ← RAM[3]
+```
+
+Esta instrucción es sintácticamente válida y permite comprobar que el mecanismo de direccionamiento y la selección de RAM funcionan correctamente, aunque el resultado de la operación no modifique el contenido de memoria.
+
+La ISA permite una única referencia de dirección `[...]` por instrucción. Todas las apariciones posteriores de `RAM` dentro de la misma instrucción utilizan esa misma dirección.
+
+## Uso de valores inmediatos
+
+Los valores inmediatos se encuentran representados mediante el campo **Immediate/Payload** de 24 bits de la instrucción.
+
+Una instrucción puede utilizar varias referencias al mismo valor inmediato, siempre que todas representen el mismo valor.
+
+Por ejemplo:
+
+```asm
+MOV [#3], #3
+```
+
+es válida porque ambas referencias utilizan el valor `3`.
+
+En cambio:
+
+```asm
+MOV [#3], #7
+```
+
+no es válida, ya que requeriría representar dos valores inmediatos diferentes dentro de un único campo Immediate/Payload.
 
 ## Resultado esperado
 
@@ -49,18 +101,49 @@ La compilación debe finalizar correctamente y generar el archivo:
 
 `compilaciones/instrucciones/test_movimiento_general.txt`
 
-El archivo generado puede cargarse posteriormente en la memoria ROM del circuito `CPU.circ` para verificar el comportamiento físico del procesador.
+El archivo generado contiene las instrucciones codificadas de 64 bits correspondientes al programa de prueba y puede utilizarse posteriormente para verificar la ejecución del programa en el procesador Milo.
 
-Durante la ejecución debe observarse que:
+Durante la ejecución debe observarse el siguiente estado final:
 
-- `MOVI` carga correctamente valores inmediatos.
-- `MOV` copia correctamente datos entre registros.
-- `STORE` escribe correctamente en memoria cuando el dato proviene del banco de registros.
-- `STORE` escribe correctamente en memoria cuando el dato proviene de un valor inmediato.
-- `STORE` escribe correctamente en memoria cuando el dato proviene del registro `RINPT`.
-- `LOAD` recupera correctamente los valores previamente almacenados.
-- El bucle final mantiene la escritura continua del registro de entrada sobre la dirección indicada por `R3`, permitiendo observar el comportamiento dinámico del sistema de entrada.
+### Banco de registros
 
-La memoria RAM, el banco de registros y el Bus C deben reflejar el comportamiento esperado durante toda la ejecución.
+| Registro | Valor esperado |
+| -------- | -------------: |
+| `R0`     |            `5` |
+| `R1`     |            `5` |
+| `R2`     |            `2` |
+| `R3`     |            `3` |
+| `R4`     |            `5` |
 
-![Test Movimiento General](../images/test_movimiento_general.png)
+Los registros `R5`–`R15` no son modificados por este test.
+
+### Memoria RAM
+
+| Dirección | Valor esperado |
+| --------: | -------------: |
+|  `RAM[1]` |            `5` |
+|  `RAM[2]` |            `7` |
+|  `RAM[3]` |            `3` |
+|  `RAM[5]` |            `5` |
+
+Las demás posiciones de memoria no son modificadas por este programa.
+
+## Verificaciones realizadas
+
+El test permite comprobar conjuntamente:
+
+* Selección de registros como fuente y destino.
+* Selección de valores inmediatos como operandos.
+* Selección de RAM como fuente.
+* Escritura de datos hacia RAM mediante Bus C.
+* Lectura de datos desde RAM.
+* Uso de registros `R0–R7` como fuentes de dirección para el MAR.
+* Uso de valores inmediatos como fuentes de dirección.
+* Correcta selección de `RegSrcA`, `RegSrcB` y `RegDest`.
+* Correcta integración entre el sistema de operandos del parser, el encoder y el datapath.
+* Correcta interpretación de las referencias `[...]` y `RAM`.
+
+Este test constituye una prueba fundamental de la arquitectura de operandos de la ISA V2, ya que una misma instrucción puede combinar diferentes fuentes y destinos sin depender de instrucciones especializadas para cada operación de memoria.
+
+![Test Movimiento General RAM](../images/test_movimiento_general_RAM.png)
+![Test Movimiento General Regs](../images/test_movimiento_general_Regs.png)

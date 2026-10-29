@@ -1,0 +1,22 @@
+; ================================================================
+; Test: MOV con valores inmediatos
+; Verifica MOV Rn, #0x... para los 16 registros de Milo.
+; ================================================================
+
+MOV R0,  #0x01
+MOV R1,  #0x02
+MOV R2,  #0x03
+MOV R3,  #0x04
+MOV R4,  #0x05
+MOV R5,  #0x06
+MOV R6,  #0x07
+MOV R7,  #0x08
+
+MOV R8,  #0x09
+MOV R9,  #0x0A
+MOV R10, #0x0B
+MOV R11, #0x0C
+MOV R12, #0x0D
+MOV R13, #0x0E
+MOV R14, #0x0F
+MOV R15, #0x10

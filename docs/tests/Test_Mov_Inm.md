@@ -1,6 +1,6 @@
-# Test MOVI
+# Test MOV INM
 
-El test **MOVI** verifica la generación de código para las instrucciones de carga inmediata del ISA.
+El test **MOV_INM** verifica la generación de código para las instrucciones de carga inmediata del ISA.
 
 Su objetivo principal consiste en comprobar que el compilador codifique correctamente el registro destino y el valor inmediato almacenado en la palabra de datos de la ROM.
 
@@ -13,13 +13,13 @@ Actualmente la prueba verifica:
 - Traducción correcta hacia el formato físico de la ROM.
 - Exportación del programa compilado.
 
-Para ello, el programa genera automáticamente una instrucción `MOVI` para cada registro disponible de la arquitectura.
+Para ello, el programa genera automáticamente una instrucción `MOV` para cada registro disponible de la arquitectura.
 
 ```text
-MOVI R0, #1
-MOVI R1, #2
+MOV R0, #1
+MOV R1, #2
 ...
-MOVI R15, #16
+MOV R15, #16
 ```
 
 ## Resultado esperado
